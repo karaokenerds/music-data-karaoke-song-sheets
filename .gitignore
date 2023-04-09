@@ -127,3 +127,16 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Environment variables
+.env
+
+# Google API tokens and credentials
+token.json
+credentials.json
+
+# Karaoke data file
+full-data-latest.json.gz
+
+# Output CSV files
+karaoke_songs_by_top_artists*
