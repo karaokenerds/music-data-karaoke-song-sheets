@@ -134,6 +134,7 @@ dmypy.json
 # Google API tokens and credentials
 token.json
 credentials.json
+client_secret*
 
 # Karaoke data file
 full-data-latest.json.gz

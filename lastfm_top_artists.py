@@ -5,10 +5,19 @@ import json
 import csv
 from dotenv import load_dotenv
 
+import httplib2
+from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+
+
 load_dotenv()
 
 API_KEY = os.getenv("LASTFM_API_KEY")
 LASTFM_USERNAMES = os.getenv("LASTFM_USERNAMES")
+usernames = LASTFM_USERNAMES.split(',')
 
 
 def get_top_artists(username, limit=500):
@@ -64,9 +73,87 @@ def write_songs_to_csv(songs, artists, output_file):
             })
 
 
-if __name__ == "__main__":
-    usernames = LASTFM_USERNAMES.split(',')
+def create_google_sheet(title):
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    creds = None
+    credentials_path = os.getenv("GOOGLE_CREDENTIALS_PATH")
 
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                credentials_path, SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+
+    service = build('sheets', 'v4', credentials=creds)
+    spreadsheet = {
+        'properties': {
+            'title': title
+        }
+    }
+    spreadsheet = service.spreadsheets().create(
+        body=spreadsheet, fields='spreadsheetId').execute()
+    return spreadsheet.get('spreadsheetId')
+
+
+def write_songs_to_google_sheet(spreadsheet_id, songs, artists):
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    creds = None
+    credentials_path = os.getenv("GOOGLE_CREDENTIALS_PATH")
+
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                credentials_path, SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+
+    service = build('sheets', 'v4', credentials=creds)
+
+    # Write headers
+    header_values = [['Artist', 'Title', 'Brands',
+                      'Artist Play Count', 'Popularity at Karaoke']]
+    header_body = {
+        'values': header_values
+    }
+    service.spreadsheets().values().update(
+        spreadsheetId=spreadsheet_id, range='A1:E1',
+        valueInputOption='RAW', body=header_body).execute()
+
+    # Write data
+    artist_play_counts = {artist['name'].lower(
+    ): artist['playcount'] for artist in artists}
+    data_values = []
+
+    for song in songs:
+        brands_list = song['Brands'].split(',')
+        data_values.append([
+            song['Artist'],
+            song['Title'],
+            song['Brands'],
+            artist_play_counts[song['Artist'].lower()],
+            len(brands_list)
+        ])
+
+    data_body = {
+        'values': data_values
+    }
+    service.spreadsheets().values().update(
+        spreadsheetId=spreadsheet_id, range=f'A2:E{len(data_values) + 1}',
+        valueInputOption='RAW', body=data_body).execute()
+
+
+if __name__ == "__main__":
     for username in usernames:
         top_artists = get_top_artists(username)
 
@@ -82,3 +169,13 @@ if __name__ == "__main__":
         write_songs_to_csv(filtered_songs, top_artists, output_file)
 
         print(f"Filtered karaoke songs by top artists saved to {output_file}")
+
+        # Create a new Google Sheet and write the filtered songs to it
+        sheet_title = f'Karaoke Songs by Top Artists - {username}'
+        spreadsheet_id = create_google_sheet(sheet_title)
+        write_songs_to_google_sheet(
+            spreadsheet_id, filtered_songs, top_artists)
+
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
+        print(
+            f"Filtered karaoke songs by top artists saved to Google Sheet '{sheet_title}' with URL: {sheet_url}")
