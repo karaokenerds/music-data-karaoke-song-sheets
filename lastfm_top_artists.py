@@ -122,12 +122,12 @@ def write_songs_to_google_sheet(spreadsheet_id, songs, artists):
 
     # Write headers
     header_values = [['Artist', 'Title', 'Brands',
-                      'Artist Play Count', 'Popularity at Karaoke']]
+                      'Artist Play Count', 'Popularity at Karaoke', 'Score']]
     header_body = {
         'values': header_values
     }
     service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id, range='A1:E1',
+        spreadsheetId=spreadsheet_id, range='A1:F1',
         valueInputOption='RAW', body=header_body).execute()
 
     # Write data
@@ -137,19 +137,24 @@ def write_songs_to_google_sheet(spreadsheet_id, songs, artists):
 
     for song in songs:
         brands_list = song['Brands'].split(',')
+        play_count = int(artist_play_counts[song['Artist'].lower()])
+        popularity = len(brands_list)
+        score = play_count * popularity
+
         data_values.append([
             song['Artist'],
             song['Title'],
             song['Brands'],
-            artist_play_counts[song['Artist'].lower()],
-            len(brands_list)
+            play_count,
+            popularity,
+            score
         ])
 
     data_body = {
         'values': data_values
     }
     service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id, range=f'A2:E{len(data_values) + 1}',
+        spreadsheetId=spreadsheet_id, range=f'A2:F{len(data_values) + 1}',
         valueInputOption='RAW', body=data_body).execute()
 
 
