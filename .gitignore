@@ -139,5 +139,6 @@ client_secret*
 # Karaoke data file
 full-data-latest.json.gz
 
-# Output CSV files
+# Output and intermediate files
 karaoke_songs_by_top_artists*
+*_top_tracks.json
