@@ -141,4 +141,4 @@ full-data-latest.json.gz
 
 # Output and intermediate files
 karaoke_songs_by_top_artists*
-*_top_tracks.json
+*_top_*.json
