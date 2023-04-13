@@ -121,8 +121,7 @@ def get_google_flow():
     redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI")
 
     scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/drive.file",
     ]
 
     flow = Flow.from_client_secrets_file(
