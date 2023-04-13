@@ -236,6 +236,7 @@
             const response = await fetch('/get_log_output');
             const logOutput = await response.text();
             logContent.innerText = logOutput;
+            logContent.scrollTop = logContent.scrollHeight;
         };
 
         window.logOutputInterval = setInterval(updateLogContent, 1000);
