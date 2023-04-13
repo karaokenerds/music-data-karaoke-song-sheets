@@ -60,6 +60,10 @@ def get_log_output():
 
 sys.stdout = log_capture
 
+@app.route('/favicon.ico')
+def send_favicon():
+    return send_from_directory('assets', 'favicon.ico')
+
 @app.route('/assets/<path:path>')
 def send_asset(path):
     return send_from_directory('assets', path)
@@ -612,4 +616,5 @@ def home():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
