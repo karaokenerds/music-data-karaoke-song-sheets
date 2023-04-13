@@ -4,7 +4,6 @@ import json
 import os
 import sys
 
-import httplib2
 import requests
 import spotipy
 from dotenv import load_dotenv
@@ -16,16 +15,14 @@ from flask import (
     request,
     session,
     url_for,
+    send_from_directory,
 )
-from google_auth_httplib2 import AuthorizedHttp
-from google_auth_oauthlib.flow import Flow, InstalledAppFlow
+
+from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 from requests.auth import HTTPBasicAuth
 from spotipy.oauth2 import SpotifyOAuth
 
-from google.auth.transport.requests import Request
-from google.oauth2 import credentials, service_account
 from google.oauth2.credentials import Credentials
 
 
@@ -64,6 +61,9 @@ def get_log_output():
 
 sys.stdout = log_capture
 
+@app.route('/assets/<path:path>')
+def send_asset(path):
+    return send_from_directory('assets', path)
 
 @app.route("/authenticate/spotify")
 def authenticate_spotify():
@@ -605,8 +605,6 @@ def generate_sheet():
 
 @app.route("/", methods=["GET"])
 def home():
-    print(session)
-
     is_authenticated = session.get("spotify_authenticated") and (
         session.get("spotify_authenticated") or session.get("lastfm_authenticated")
     )
