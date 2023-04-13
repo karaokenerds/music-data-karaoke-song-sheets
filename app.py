@@ -247,6 +247,8 @@ def write_songs_to_google_sheet(
             ]
         )
 
+    data_values.sort(key=lambda x: int(x[7]), reverse=True)
+
     data_body = {"values": data_values}
     service.spreadsheets().values().update(
         spreadsheetId=spreadsheet_id,
