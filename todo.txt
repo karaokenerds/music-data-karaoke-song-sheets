@@ -12,3 +12,5 @@ iterate through all of the top tracks and add those artists to the top artists
 get the "popularity" value for each track and use that as a "score" for each
 
 if user has both spotify and last.fm authed, combine data from both!
+
+make log output show from start (not just after generate button)
