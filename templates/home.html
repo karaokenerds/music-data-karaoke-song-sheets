@@ -10,9 +10,11 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f8f9fa;
+            background-color: #1A1F24;
             margin: 0;
             padding: 0;
+            color: #ffffff;
+            font-family: "Source Sans Pro", sans-serif;
         }
 
         body>.container {
@@ -22,11 +24,20 @@
         .container {
             max-width: 800px;
             margin: 0 auto;
+            background-color: #262D34;
+        }
+
+        img.logo {
+            display: block;
+            width: 200px;
         }
 
         h1 {
             font-size: 2.5em;
             margin-bottom: 20px;
+            color: rgb(243, 188, 79);
+            font-family: "Righteous", sans-serif;
+            font-size: 30px;
         }
 
         button {
@@ -66,14 +77,25 @@
         .lastfm input {
             width: 200px;
         }
+
+        #loadingSpinner {
+            vertical-align: bottom;
+            margin: 0 10px 4px 10px;
+        }
+
+        .karaokeSheetLink {
+            color: lightgreen;
+            font-size: 24px;
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>KaraokeHunt: Google Sheet Builder</h1>
-        <p>Use this tool to generate a google sheet of karaoke songs you may know, based on your listening data from
-            Last.fm or Spotify</p>
+        <img class="logo"
+            src="https://karaokehunt.com/wp-content/uploads/2023/03/karaoke-hunt-logo-rect-3000px-transparent-2048x1229.png" />
+        <h1>Personal Karaoke Songs Sheet Builder</h1>
+        <p>Use this tool to generate a google sheet of karaoke songs you may know, based on your listening data!</p>
 
         <div class="row">
 
@@ -129,7 +151,7 @@
             <em>I recommend sorting by the "Track Count x Karaoke Popularity" column to find easy wins!</em>
 
             <div class="col">
-                <a href="#" target="_blank">Karaoke Sheet</a>
+                <a class="karaokeSheetLink" href="#" target="_blank">Karaoke Sheet</a>
             </div>
         </div>
 

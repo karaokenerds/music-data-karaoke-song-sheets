@@ -199,10 +199,13 @@ def write_songs_to_google_sheet(
     # Write data
     if music_source == "Spotify":
         artist_play_counts = {artist["name"].lower(): 1 for artist in artists}
-        track_play_counts = {
-            (track["album"]["artists"][0]["name"].lower(), track["name"].lower()): 1
-            for track in top_tracks
-        }
+        track_play_counts = {}
+
+        for track in top_tracks:
+            try:
+                track_play_counts[(track["album"]["artists"][0]["name"].lower(), track["name"].lower())] = 1
+            except:
+                print(f'Failed to add track {track["name"]} as it had no album artists')
     else:
         artist_play_counts = {
             artist["name"].lower(): artist["playcount"] for artist in artists
