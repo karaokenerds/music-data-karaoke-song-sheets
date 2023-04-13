@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karaoke Sheet Builder</title>
+</head>
+
+<body>
+    <h1>Welcome to the Karaoke Sheet Builder</h1>
+    <p>Choose a data provider and authenticate to build your karaoke sheet.</p>
+
+    Step 1: Log in with Spotify: <br />
+    <button id="spotifyAuthButton" type="button" class="btn btn-primary">
+        Authenticate with Spotify
+    </button>
+    <br />
+    Or Last.fm: <br />
+    <br />
+    Enter Last.fm username: <input type="text" id="lastfmUsername" />
+    <button id="lastfmAuthButton" type="button" class="btn btn-primary">
+        Authenticate with Last.fm
+    </button>
+
+    <br />
+    <br />
+    Step 2:
+    <button id="googleAuthButton" type="button" class="btn btn-primary">
+        Authenticate with Google
+    </button>
+
+    <br />
+    <br />
+    Step 3:
+    <button id="buildSheetButton" type="button" class="btn btn-primary">
+        Build my Karaoke Sheet
+    </button>
+
+    <br />
+    <br />
+    <div id="loadingSpinner" class="spinner-border" role="status" style="display: none;">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+
+    <div id="logOutput" class="border mt-3" style="display: none; max-height: 200px; overflow-y: auto;">
+        <pre id="logContent"></pre>
+    </div>
+
+    <div id="sheetLink" class="mt-3" style="display: none;">
+        <a href="#" target="_blank">Open your generated Karaoke Sheet</a>
+    </div>
+
+    <script>
+        document.getElementById("spotifyAuthButton").onclick = function () {
+            window.location.href = "/authenticate/spotify";
+        };
+
+        document.getElementById("lastfmAuthButton").onclick = function () {
+            let lastfmUsername = document.getElementById("lastfmUsername").value;
+            window.location.href = "/authenticate/lastfm?username=" + lastfmUsername;
+        };
+
+        // Add a click event listener to the Google authentication button
+        const googleAuthButton = document.getElementById("googleAuthButton");
+        googleAuthButton.addEventListener("click", () => {
+            window.location.href = "/authorize_google";
+        });
+
+        // Add a click event listener to the Google authentication button
+        const buildSheetButton = document.getElementById("buildSheetButton");
+        buildSheetButton.addEventListener("click", async () => {
+            document.getElementById("loadingSpinner").style.display = "inline-block";
+            startLogOutput();
+
+            try {
+                // Call the /generate_sheet route
+                const response = await fetch("/generate_sheet");
+                if (response.ok) {
+                    const sheetUrl = await response.text();
+                    console.log("Karaoke sheet generated successfully:", sheetUrl);
+                } else {
+                    throw new Error("Failed to generate karaoke sheet");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                document.getElementById("loadingSpinner").style.display = "none";
+                alert("An error occurred while generating the karaoke sheet. Please try again.");
+            }
+        });
+
+        // Add this function to handle the log output and the Google Sheet link display
+        function startLogOutput() {
+            // Display the log output area
+            document.getElementById("logOutput").style.display = "block";
+
+            // Fetch the log output from the backend periodically and update the log content
+            const logContent = document.getElementById("logContent");
+            
+            const updateLogContent = async () => {
+                const response = await fetch('/get_log_output');
+                const logOutput = await response.text();
+                logContent.innerText = logOutput;
+
+                // Check if the karaoke sheet has been generated and display the Google Sheet link
+                if (logOutput.includes("Karaoke sheet generated successfully")) {
+                    document.getElementById("loadingSpinner").style.display = "none";
+                    clearTimeout(window.logOutputTimeout);
+
+                    const sheetUrl = logOutput.match(/https:\/\/docs\.google\.com\/spreadsheets\/[^ ]+/);
+                    if (sheetUrl) {
+                        const sheetLink = document.getElementById("sheetLink");
+                        sheetLink.querySelector("a").href = sheetUrl;
+                        sheetLink.style.display = "block";
+                    }
+                } else {
+                    // Refresh log output every second
+                    window.logOutputTimeout = setTimeout(updateLogContent, 1000);
+                }
+            };
+
+            updateLogContent();
+        }
+    </script>
+
+</body>
+
+</html>
