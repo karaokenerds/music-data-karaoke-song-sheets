@@ -3,6 +3,9 @@ import io
 import json
 import os
 import sys
+from pathlib import Path
+import urllib.request
+from datetime import datetime, timedelta
 
 import requests
 import spotipy
@@ -25,40 +28,57 @@ from spotipy.oauth2 import SpotifyOAuth
 
 from google.oauth2.credentials import Credentials
 
+##########################################################################
+###################            Init and Setup               ##############
+##########################################################################
 
 load_dotenv()
 
 KARAOKE_SONGS_FILE = os.getenv("KARAOKE_SONGS_FILE")
+KARAOKE_SONGS_URL = os.getenv("KARAOKE_SONGS_URL")
+
 LASTFM_API_KEY = os.getenv("LASTFM_API_KEY")
 
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
 
+TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
+LOG_FILE_NAME = os.getenv("LOG_FILE_NAME")
+
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
-
 
 class LogCapture(io.StringIO):
     def __init__(self):
         super().__init__()
+        self.logfile = open(f'{TEMP_OUTPUT_DIR}/{LOG_FILE_NAME}', "a")
 
     def write(self, s):
         super().write(s)
+        self.logfile.write(s)
         sys.__stdout__.write(s)
         sys.__stdout__.flush()
 
 
 log_capture = LogCapture()
+sys.stdout = log_capture
 
+def is_file_older_than(file, delta): 
+    cutoff = datetime.utcnow() - delta
+    mtime = datetime.utcfromtimestamp(os.path.getmtime(file))
+    if mtime < cutoff:
+        return True
+    return False
 
-@app.route("/get_log_output", methods=["GET"])
+##########################################################################
+###################           Utility Routes                ##############
+##########################################################################
+
+@app.route("/logs", methods=["GET"])
 def get_log_output():
     log_output = log_capture.getvalue()
     return Response(log_output, mimetype="text/plain")
-
-
-sys.stdout = log_capture
 
 @app.route('/favicon.ico')
 def send_favicon():
@@ -68,11 +88,17 @@ def send_favicon():
 def send_asset(path):
     return send_from_directory('assets', path)
 
+@app.route("/reset")
+def reset_session():
+    session.clear()
+    return redirect(url_for("home"))
+
+##########################################################################
+################           Spotify Auth Flow                ##############
+##########################################################################
+
 @app.route("/authenticate/spotify")
 def authenticate_spotify():
-    session["spotify_authenticated"] = False
-    session["lastfm_authenticated"] = False
-
     auth_manager = spotipy.SpotifyOAuth(
         client_id=os.environ.get("SPOTIFY_CLIENT_ID"),
         client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET"),
@@ -105,16 +131,38 @@ def spotify_callback():
     return redirect(url_for("home"))
 
 
+def get_spotify_user_id(access_token):
+    url = "https://api.spotify.com/v1/me"
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        print(f"Failed to fetch user ID. Error {response.status_code}: {response.text}")
+        return None
+
+    user_data = response.json()
+    user_id = user_data["id"]
+
+    return user_id
+
+##########################################################################
+################           Last.fm Auth Flow                ##############
+##########################################################################
+
 @app.route("/authenticate/lastfm")
 def authenticate_lastfm():
-    session["spotify_authenticated"] = False
-    session["lastfm_authenticated"] = True
     session["lastfm_username"] = request.args.get("username")
+    session["lastfm_authenticated"] = True
 
     print(f'Last.fm authentication successful, username: {session["lastfm_username"]}')
 
     return redirect(url_for("home"))
 
+
+##########################################################################
+################           Google Auth Flow                 ##############
+##########################################################################
 
 def get_google_flow():
     credentials_path = os.getenv("GOOGLE_CREDENTIALS_PATH")
@@ -157,106 +205,9 @@ def authenticate_google():
         return redirect(url_for("home"))
 
 
-def create_google_sheet(title, creds):
-    print(f"Creating google sheet with title: {title}")
-    service = build("sheets", "v4", credentials=creds)
-    spreadsheet = {"properties": {"title": title}}
-    spreadsheet = (
-        service.spreadsheets()
-        .create(body=spreadsheet, fields="spreadsheetId")
-        .execute()
-    )
-    return spreadsheet.get("spreadsheetId")
-
-
-def write_songs_to_google_sheet(
-    spreadsheet_id, songs, artists, top_tracks, creds, music_source
-):
-    print(f"Writing karaoke songs to google sheet with ID: {spreadsheet_id}")
-    service = build("sheets", "v4", credentials=creds)
-
-    # Write headers
-    header_values = [
-        [
-            "Artist",
-            "Title",
-            "Brands",
-            "Artist Play Count",
-            "Track Play Count",
-            "Popularity at Karaoke",
-            "Artist Count x Karaoke Popularity",
-            "Track Count x Karaoke Popularity",
-        ]
-    ]
-    header_body = {"values": header_values}
-    service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
-        range="A1:H1",
-        valueInputOption="RAW",
-        body=header_body,
-    ).execute()
-
-    # Write data
-    if music_source == "Spotify":
-        artist_play_counts = {artist["name"].lower(): 1 for artist in artists}
-        track_play_counts = {}
-
-        for track in top_tracks:
-            try:
-                track_play_counts[(track["album"]["artists"][0]["name"].lower(), track["name"].lower())] = 1
-            except:
-                print(f'Failed to add track {track["name"]} as it had no album artists')
-    else:
-        artist_play_counts = {
-            artist["name"].lower(): artist["playcount"] for artist in artists
-        }
-        track_play_counts = {
-            (track["artist"]["name"].lower(), track["name"].lower()): int(
-                track["playcount"]
-            )
-            for track in top_tracks
-        }
-
-    data_values = []
-
-    for song in songs:
-        brands_list = song["Brands"].split(",")
-        play_count_artist = 0
-
-        artist_lower = song["Artist"].lower()
-        if artist_lower in artist_play_counts:
-            play_count_artist = int(artist_play_counts[artist_lower])
-
-        play_count_track = track_play_counts.get(
-            (song["Artist"].lower(), song["Title"].lower()), 0
-        )
-        popularity = len(brands_list)
-        artist_popularity_score = play_count_artist * popularity
-        track_popularity_score = play_count_track * popularity
-
-        data_values.append(
-            [
-                song["Artist"],
-                song["Title"],
-                song["Brands"],
-                play_count_artist,
-                play_count_track,
-                popularity,
-                artist_popularity_score,
-                track_popularity_score,
-            ]
-        )
-
-    data_values.sort(key=lambda x: int(x[7]), reverse=True)
-
-    data_body = {"values": data_values}
-    service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
-        range=f"A2:H{len(data_values) + 1}",
-        valueInputOption="RAW",
-        body=data_body,
-    ).execute()
-
+##########################################################################
+###########          Google Sheet Find & Create                ###########
+##########################################################################
 
 def find_google_sheet_id(sheet_title, creds):
     print(f"Finding google sheet with title: {sheet_title}")
@@ -275,27 +226,50 @@ def find_google_sheet_id(sheet_title, creds):
     else:
         return None
 
-
-def get_spotify_user_id(access_token):
-    url = "https://api.spotify.com/v1/me"
-    headers = {"Authorization": f"Bearer {access_token}"}
-
-    response = requests.get(url, headers=headers)
-
-    if response.status_code != 200:
-        print(f"Failed to fetch user ID. Error {response.status_code}: {response.text}")
-        return None
-
-    user_data = response.json()
-    user_id = user_data["id"]
-
-    return user_id
+def create_google_sheet(title, creds):
+    print(f"Creating google sheet with title: {title}")
+    service = build("sheets", "v4", credentials=creds)
+    spreadsheet = {"properties": {"title": title}}
+    spreadsheet = (
+        service.spreadsheets()
+        .create(body=spreadsheet, fields="spreadsheetId")
+        .execute()
+    )
+    return spreadsheet.get("spreadsheetId")
 
 
-def get_top_artists_spotify(
-    spotify_user_id, access_token, time_range="long_term", limit=500
-):
-    cache_file = f"{spotify_user_id}_top_artists_spotify.json"
+##########################################################################
+###########            Load Karaoke Nerds Data                 ###########
+##########################################################################
+
+def load_karaoke_songs():
+    file_path = Path(f'{TEMP_OUTPUT_DIR}/{KARAOKE_SONGS_FILE}')
+    needs_fetch = False
+
+    if not file_path.is_file():
+        print(f"Karaoke song DB file not found, download required")
+        needs_fetch = True
+    else:
+        if is_file_older_than(file_path, timedelta(days=3)):
+            print(f"Karaoke song DB is older than 3 days, download required")
+            needs_fetch = True
+
+    if needs_fetch:
+        print(f"Downloading latest karaoke song DB from firebase storage")
+        urllib.request.urlretrieve(KARAOKE_SONGS_URL, file_path)
+        
+    with gzip.open(file_path, "rt", encoding="utf-8") as f:
+        print(f"Successfully opened karaoke song DB")
+        data = json.load(f)
+        return data
+
+
+##########################################################################
+###########                Load Spotify Data                   ###########
+##########################################################################
+
+def get_top_artists_spotify(spotify_user_id, access_token):
+    cache_file = f'{TEMP_OUTPUT_DIR}/top_artists_spotify_{spotify_user_id}.json'
 
     # Load data from cache file if it exists
     if os.path.exists(cache_file):
@@ -310,23 +284,23 @@ def get_top_artists_spotify(
         f"No top artists cache file found for user ID {spotify_user_id}, fetching 50 top artists"
     )
 
+    limit = 1000
     url = "https://api.spotify.com/v1/me/top/artists"
     headers = {"Authorization": f"Bearer {access_token}"}
     all_top_artists = []
 
-    params = {"time_range": time_range, "limit": limit, "offset": 0}
+    time_ranges = ["long_term", "medium_term", "short_term"]
+    for time_range in time_ranges:
+        params = {"time_range": time_range, "limit": 50}   
+        response = requests.get(url, headers=headers, params=params)
 
-    response = requests.get(url, headers=headers, params=params)
+        if response.status_code != 200:
+            print(f"Failed to fetch top artists. Error {response.status_code}: {response.text}")
+            return None
 
-    if response.status_code != 200:
-        print(
-            f"Failed to fetch top artists. Error {response.status_code}: {response.text}"
-        )
-        return None
-
-    top_artists_data = response.json()
-    top_artists = top_artists_data["items"]
-    all_top_artists.extend(top_artists)
+        top_artists_data = response.json()
+        top_artists = top_artists_data["items"]
+        all_top_artists.extend(top_artists)
 
     # Fetch followed artists
     followed_artists_url = "https://api.spotify.com/v1/me/following?type=artist"
@@ -372,10 +346,8 @@ def get_top_artists_spotify(
     return unique_artists_list
 
 
-def get_top_tracks_spotify(
-    spotify_user_id, access_token, time_range="long_term", limit=10000
-):
-    cache_file = f"{spotify_user_id}_top_tracks_spotify.json"
+def get_top_tracks_spotify(spotify_user_id, access_token):
+    cache_file = f'{TEMP_OUTPUT_DIR}/top_tracks_spotify_{spotify_user_id}.json'
 
     # Load data from cache file if it exists
     if os.path.exists(cache_file):
@@ -387,39 +359,26 @@ def get_top_tracks_spotify(
             return all_top_tracks
 
     print(
-        f"No top tracks cache file found for user ID {spotify_user_id}, beginning last.fm fetch loop"
+        f"No top tracks cache file found for user ID {spotify_user_id}, beginning fetch loop"
     )
 
+    limit = 10000
     url = "https://api.spotify.com/v1/me/top/tracks"
     headers = {"Authorization": f"Bearer {access_token}"}
     all_top_tracks = []
 
-    for offset in range(0, limit, 50):
-        print(
-            f"Inside top tracks for loop, time_range: {time_range}, limit: {limit}, offset: {offset}, len(all_top_tracks): {len(all_top_tracks)}"
-        )
-        params = {"time_range": time_range, "limit": 50, "offset": offset}
-
+    time_ranges = ["long_term", "medium_term", "short_term"]
+    for time_range in time_ranges:
+        params = {"time_range": time_range, "limit": 50}   
         response = requests.get(url, headers=headers, params=params)
 
         if response.status_code != 200:
-            print(
-                f"Failed to fetch top tracks. Error {response.status_code}: {response.text}"
-            )
+            print(f"Failed to fetch top tracks. Error {response.status_code}: {response.text}")
             return None
 
         top_tracks_data = response.json()
         top_tracks = top_tracks_data["items"]
         all_top_tracks.extend(top_tracks)
-
-        if not top_tracks:
-            break
-
-        if len(all_top_tracks) > limit:
-            print(f"Top tracks limit reached, breaking loop: {limit}")
-            break
-
-        offset += limit
 
     # Fetch saved tracks
     saved_tracks_url = "https://api.spotify.com/v1/me/tracks"
@@ -466,26 +425,46 @@ def get_top_tracks_spotify(
     return unique_tracks_list
 
 
-def load_karaoke_songs(file_path):
-    with gzip.open(file_path, "rt", encoding="utf-8") as f:
-        data = json.load(f)
-        return data
+##########################################################################
+###########                Load Last.fm Data                   ###########
+##########################################################################
 
 
-def get_top_artists_lastfm(username, api_key):
+def get_top_artists_lastfm(username):
+    cache_file = f'{TEMP_OUTPUT_DIR}/top_artists_lastfm_{username}.json'
+
+    # Load data from cache file if it exists
+    if os.path.exists(cache_file):
+        print(
+            f"Found top artists cache file for user {username}, loading this instead of fetching again"
+        )
+        with open(cache_file, "r", encoding="utf-8") as f:
+            all_top_artists = json.load(f)
+            return all_top_artists
+
+    print(
+        f"No top artists cache file found for user {username}, fetching from last.fm"
+    )
+
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "method": "user.getTopArtists",
         "user": username,
-        "api_key": api_key,
+        "api_key": LASTFM_API_KEY,
         "format": "json",
-        "limit": 500,
+        "limit": 1000,
     }
 
     response = requests.get(url, params=params)
     if response.status_code == 200:
         data = response.json()
-        return data["topartists"]["artist"]
+        all_top_artists = data["topartists"]["artist"]
+
+        # Cache fetched data to a file
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(all_top_artists, f)
+
+        return all_top_artists
     else:
         print(
             f"Error {response.status_code}: Failed to fetch top artists for user {username}"
@@ -493,8 +472,8 @@ def get_top_artists_lastfm(username, api_key):
         sys.exit(1)
 
 
-def get_top_tracks_lastfm(username, api_key):
-    cache_file = f"{username}_top_tracks_lastfm.json"
+def get_top_tracks_lastfm(username):
+    cache_file = f'{TEMP_OUTPUT_DIR}/top_tracks_lastfm_{username}.json'
 
     # Load data from cache file if it exists
     if os.path.exists(cache_file):
@@ -521,7 +500,7 @@ def get_top_tracks_lastfm(username, api_key):
         params = {
             "method": "user.getTopTracks",
             "user": username,
-            "api_key": api_key,
+            "api_key": LASTFM_API_KEY,
             "format": "json",
             "limit": limit,
             "page": page,
@@ -558,46 +537,205 @@ def get_top_tracks_lastfm(username, api_key):
     return all_top_tracks[:max_tracks]
 
 
+
+##########################################################################
+###########                Write Rows to Sheet                 ###########
+##########################################################################
+
+def write_songs_to_google_sheet(
+    spreadsheet_id, google_creds, all_karaoke_songs, include_zero_score,
+    lastfm_artist_playcounts, lastfm_track_playcounts, 
+    spotify_artist_scores, spotify_track_scores
+):
+    print(f"Writing karaoke songs to google sheet with ID: {spreadsheet_id}")
+    service = build("sheets", "v4", credentials=google_creds)
+
+    # Write headers
+    header_values = [
+        "Artist",
+        "Title",
+        "Karaoke Brands",
+        "Karaoke Popularity",
+    ]
+
+    if spotify_artist_scores is not None:
+        header_values.append("Spotify Artist Score")
+        header_values.append("Spotify Track Score")
+        header_values.append("Spotify Artist Score x Karaoke Popularity")
+        header_values.append("Spotify Track Score x Karaoke Popularity")
+
+    if lastfm_artist_playcounts is not None:
+        header_values.append("Last.fm Artist Play Count")
+        header_values.append("Last.fm Track Play Count")
+        header_values.append("Last.fm Artist Play Count x Karaoke Popularity")
+        header_values.append("Last.fm Track Play Count x Karaoke Popularity")
+    
+    # If there's only one music data provider, sort by that provider's track x popularity column (7)
+    sort_column = 7
+    if spotify_artist_scores is not None and lastfm_artist_playcounts is not None:
+        header_values.append("Combined Artist Score x Karaoke Popularity")
+        header_values.append("Combined Track Score x Karaoke Popularity")
+
+        # If there's more than one music data provider, sort by the combined track x popularity column (13)
+        sort_column = 13
+
+    header_body = {"values": [header_values]}
+    service.spreadsheets().values().update(
+        spreadsheetId=spreadsheet_id,
+        range="A1:N1",
+        valueInputOption="RAW",
+        body=header_body,
+    ).execute()
+
+    # Combine track data
+    spotify_artist_scores_simple = {}
+    spotify_track_scores_simple = {}
+    if spotify_artist_scores is not None:
+        spotify_artist_scores_simple = {artist["name"].lower(): artist["popularity"] for artist in spotify_artist_scores}
+
+    if spotify_track_scores is not None:
+        for track in spotify_track_scores:
+            try:
+                spotify_track_scores_simple[(track["album"]["artists"][0]["name"].lower(), track["name"].lower())] = track["popularity"]
+            except:
+                print(f'Failed to add track {track["name"]} as it had no album artists')
+    
+    lastfm_artist_playcounts_simple = {}
+    lastfm_track_playcounts_simple = {}
+    if lastfm_artist_playcounts is not None:
+        lastfm_artist_playcounts_simple = {
+            artist["name"].lower(): artist["playcount"] for artist in lastfm_artist_playcounts
+        }
+    
+    if lastfm_track_playcounts is not None:
+        lastfm_track_playcounts_simple = {
+            (track["artist"]["name"].lower(), track["name"].lower()): int(
+                track["playcount"]
+            )
+            for track in lastfm_track_playcounts
+        }
+
+    data_values = []
+
+    for song in all_karaoke_songs:
+        brands_list = song["Brands"].split(",")
+        artist_lower = song["Artist"].lower()
+        title_lower = song["Title"].lower()
+    
+        popularity = len(brands_list)
+
+        spotify_artist_score_simple = 0
+        spotify_track_score_simple = 0
+        lastfm_artist_playcount_simple = 0
+        lastfm_track_playcount_simple = 0
+
+        spotify_artist_score_simple = int(spotify_artist_scores_simple.get(
+            artist_lower, 0
+        ))
+        spotify_track_score_simple = int(spotify_track_scores_simple.get(
+            (artist_lower, title_lower), 0
+        ))
+
+        lastfm_artist_playcount_simple = int(lastfm_artist_playcounts_simple.get(
+            artist_lower, 0
+        ))
+        lastfm_track_playcount_simple = int(lastfm_track_playcounts_simple.get(
+            (artist_lower, title_lower), 0
+        ))
+
+        song_values = [
+            song["Artist"],
+            song["Title"],
+            song["Brands"],
+            popularity
+        ]
+
+        if spotify_artist_scores is not None:
+            spotify_artist_popularity_score = spotify_artist_score_simple * popularity
+            spotify_track_popularity_score = spotify_track_score_simple * popularity
+            song_values.append(spotify_artist_score_simple)
+            song_values.append(spotify_track_score_simple)
+            song_values.append(spotify_artist_popularity_score)
+            song_values.append(spotify_track_popularity_score)
+
+        if lastfm_artist_playcounts is not None:
+            lastfm_artist_popularity_score = lastfm_artist_playcount_simple * popularity
+            lastfm_track_popularity_score = lastfm_track_playcount_simple * popularity
+            song_values.append(lastfm_artist_playcount_simple)
+            song_values.append(lastfm_track_playcount_simple)
+            song_values.append(lastfm_artist_popularity_score)
+            song_values.append(lastfm_track_popularity_score)
+
+        if spotify_artist_scores is not None and lastfm_artist_playcounts is not None:
+            combined_artist_popularity_score = (spotify_artist_score_simple + lastfm_artist_playcount_simple) * popularity
+            combined_track_popularity_score = (spotify_track_score_simple + lastfm_track_playcount_simple) * popularity
+            song_values.append(combined_artist_popularity_score)
+            song_values.append(combined_track_popularity_score)
+            
+        data_values.append(song_values)
+
+    if include_zero_score != "true":
+        data_values = [x for x in data_values if x[sort_column] > 0]
+    
+    data_values.sort(key=lambda x: int(x[sort_column]), reverse=True)
+
+    data_body = {"values": data_values}
+    service.spreadsheets().values().update(
+        spreadsheetId=spreadsheet_id,
+        range=f"A2:N{len(data_values) + 1}",
+        valueInputOption="RAW",
+        body=data_body,
+    ).execute()
+
+
+##########################################################################
+###########                  Generate Sheet                    ###########
+##########################################################################
+
 @app.route("/generate_sheet")
 def generate_sheet():
     google_token = session.get("google_token")
+    include_zero_score = request.args.get('includeZeroScoreSongs')
 
     if not google_token:
         return "Google authentication required", 401
 
-    if not session["spotify_authenticated"] and not session["lastfm_authenticated"]:
-        return "Spotify authentication or Last.fm username required", 401
+    if not session.get("spotify_authenticated") and not session.get("lastfm_authenticated"):
+        return "At least one music data source is required", 401
 
     google_creds = Credentials(token=google_token["access_token"])
-    karaoke_songs = load_karaoke_songs(KARAOKE_SONGS_FILE)
+    all_karaoke_songs = load_karaoke_songs()
 
-    if session["spotify_authenticated"]:
-        music_source = "Spotify"
+    spotify_artist_scores = None
+    spotify_track_scores = None
+    lastfm_artist_playcounts = None
+    lastfm_track_playcounts = None
+
+    if session.get("spotify_authenticated"):
+        print("Spotify auth found, loading spotify data")
         spotify_auth_token = session.get("spotify_auth_token")
         spotify_auth_token = spotify_auth_token["access_token"]
 
         username = get_spotify_user_id(spotify_auth_token)
-        top_artists = get_top_artists_spotify(username, spotify_auth_token)
-        top_tracks = get_top_tracks_spotify(username, spotify_auth_token)
-    else:
-        music_source = "Last.fm"
-        username = session.get("lastfm_username")
-        top_artists = get_top_artists_lastfm(username, LASTFM_API_KEY)
-        top_tracks = get_top_tracks_lastfm(username, LASTFM_API_KEY)
+        spotify_artist_scores = get_top_artists_spotify(username, spotify_auth_token)
+        spotify_track_scores = get_top_tracks_spotify(username, spotify_auth_token)
 
-    sheet_title = f"{username}'s Karaoke Songs with {music_source} Data"
+    if session.get("lastfm_authenticated"):
+        print("Last.fm auth found, loading lastfm data")
+        username = session.get("lastfm_username")
+        lastfm_artist_playcounts = get_top_artists_lastfm(username)
+        lastfm_track_playcounts = get_top_tracks_lastfm(username)
+
+    sheet_title = f"{username}'s KaraokeHunt Sheet"
     spreadsheet_id = find_google_sheet_id(sheet_title, google_creds)
 
     if spreadsheet_id is None:
         spreadsheet_id = create_google_sheet(sheet_title, google_creds)
 
     write_songs_to_google_sheet(
-        spreadsheet_id,
-        karaoke_songs,
-        top_artists,
-        top_tracks,
-        google_creds,
-        music_source,
+        spreadsheet_id, google_creds, all_karaoke_songs, include_zero_score,
+        lastfm_artist_playcounts, lastfm_track_playcounts, 
+        spotify_artist_scores, spotify_track_scores
     )
 
     print(
@@ -610,13 +748,24 @@ def generate_sheet():
     return sheet_url
 
 
+##########################################################################
+###########          Render HTML template with strings         ###########
+##########################################################################
+
 @app.route("/", methods=["GET"])
 def home():
-    is_authenticated = session.get("spotify_authenticated") and (
-        session.get("spotify_authenticated") or session.get("lastfm_authenticated")
-    )
+    spotify_authenticated = "spotify_authenticated" if session.get("spotify_authenticated") else ""
+    lastfm_authenticated = "lastfm_authenticated" if session.get("lastfm_authenticated") else ""
+    google_authenticated = "google_authenticated" if session.get("google_authenticated") else ""
+    lastfm_username = session.get("lastfm_username") if session.get("lastfm_username") else ""
 
-    return render_template("home.html", is_authenticated=is_authenticated)
+    return render_template(
+        "home.html", 
+        spotify_authenticated=spotify_authenticated, 
+        lastfm_authenticated=lastfm_authenticated,
+        google_authenticated=google_authenticated,
+        lastfm_username=lastfm_username
+    )
 
 
 if __name__ == "__main__":

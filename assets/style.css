@@ -1,0 +1,121 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #1A1F24;
+    margin: 0;
+    padding: 0;
+    color: #ffffff;
+    font-family: "Source Sans Pro", sans-serif;
+}
+
+body>.container {
+    padding: 30px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #262D34;
+}
+
+img.logo {
+    display: block;
+    width: 200px;
+}
+
+h1 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    color: rgb(243, 188, 79);
+    font-family: "Righteous", sans-serif;
+    font-size: 30px;
+}
+
+button {
+    margin-top: 15px;
+}
+
+.step {
+    font-weight: bold;
+    margin-top: 20px;
+}
+
+.logRow {
+    margin-top: 20px;
+}
+
+#logOutput {
+    font-family: "Courier New", monospace;
+    font-size: 0.9em;
+    padding: 10px;
+}
+
+button {
+    width: 200px;
+}
+
+.spotify,
+.lastfm {
+    text-align: left;
+}
+
+.spotify img,
+.lastfm img {
+    height: 100px;
+    object-fit: contain;
+}
+
+.lastfm input {
+    width: 200px;
+}
+
+#loadingSpinner {
+    vertical-align: bottom;
+    margin: 0 10px 4px 10px;
+}
+
+.karaokeSheetLink {
+    color: lightgreen;
+    font-size: 24px;
+}
+
+#errorsModaliFrame {
+    width: 100%;
+    height: 500px;
+}
+
+#includeZeroScoreSongsCheck {
+    margin: 20px 0 0 0;
+}
+#includeZeroScoreSongsCheck p {
+    margin: 0;
+}
+
+#spotifyAuthedButton {
+    display: none;
+}
+body.spotify_authenticated #spotifyAuthedButton {
+    display: inline;
+}
+body.spotify_authenticated #spotifyAuthButton {
+    display: none;
+}
+
+#lastfmAuthedButton {
+    display: none;
+}
+body.lastfm_authenticated #lastfmAuthedButton {
+    display: inline;
+}
+body.lastfm_authenticated #lastfmAuthButton {
+    display: none;
+}
+
+#googleAuthedButton {
+    display: none;
+}
+body.google_authenticated #googleAuthedButton {
+    display: inline;
+}
+body.google_authenticated #googleAuthButton {
+    display: none;
+}

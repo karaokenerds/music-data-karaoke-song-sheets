@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir pipenv && \
     pipenv install --system --deploy --ignore-pipfile
 
 # Copy the rest of the application code into the container
-COPY . .
+COPY templates .
+COPY app.py .
 
 # Expose the port your application will run on
 EXPOSE 5000

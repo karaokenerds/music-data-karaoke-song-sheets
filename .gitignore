@@ -131,14 +131,9 @@ dmypy.json
 # Environment variables
 .env
 
-# Google API tokens and credentials
-token.json
+# Google API credentials
 credentials.json
-client_secret*
-
-# Karaoke data file
-full-data-latest.json.gz
 
 # Output and intermediate files
-karaoke_songs_by_top_artists*
-*_top_*.json
+workdir/
+logs.txt

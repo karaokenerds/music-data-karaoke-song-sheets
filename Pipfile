@@ -12,6 +12,7 @@ google-auth-httplib2 = "*"
 google-api-python-client = "*"
 spotipy = "*"
 flask = "*"
+pathlib = "*"
 
 [dev-packages]
 
