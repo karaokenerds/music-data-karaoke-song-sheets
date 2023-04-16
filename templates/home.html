@@ -13,18 +13,27 @@
     <link rel="stylesheet" href="/assets/style.css">
 </head>
 
-<body class="{{spotify_authenticated}} {{lastfm_authenticated}} {{google_authenticated}}">
+<body
+    class="{{spotify_authenticated}} {{lastfm_authenticated}} {{google_authenticated}} {{applemusic_authenticated}} {{youtubemusic_authenticated}}">
     <div class="container">
-        <img class="logo"
-            src="https://karaokehunt.com/wp-content/uploads/2023/03/karaoke-hunt-logo-rect-3000px-transparent-2048x1229.png" />
-        <h1>Personal Karaoke Songs Sheet Builder</h1>
-        <p>Use this tool to generate a google sheet of karaoke songs you may know, based on your listening data!</p>
+        <header>
+            <img class="logo"
+                src="https://karaokehunt.com/wp-content/uploads/2023/03/karaoke-hunt-logo-rect-3000px-transparent-2048x1229.png" />
+
+            <h1>Personal Karaoke Songs Sheet Builder</h1>
+            <p class="tagline">
+                Use this tool to generate a google sheet of karaoke songs you may know, based on your listening data!
+            </p>
+        </header>
 
         <div class="row">
-
-            <div class="step">Step 1: Choose music data provider(s):</div>
-            <em>The app will try to fetch artists and tracks you know from any provider(s) you log in with.</em>
-            <div class="row">
+            <header class="step">
+                <h3>Choose music data provider(s):</h3>
+                <p class="tagline">
+                    The app will try to fetch artists and tracks you know from any provider(s) you log in with
+                </p>
+            </header>
+            <div class="row" id="musicsourcesRow">
                 <div class="col col-3 lastfm musicsource">
                     <div class="row logoRow">
                         <img src="/assets/lastfm-logo.png" />
@@ -48,7 +57,7 @@
                         <img src="/assets/spotify-logo.png" />
                     </div>
                     <div class="row notesRow">
-                        <em>Currently only works if <a href="mailto:andrew@karaokehunt.com">Andrew</a> adds you,
+                        <em>Please email <a href="mailto:andrew@karaokehunt.com">Andrew</a> for access for now,
                             sorry!</em>
                     </div>
                     <div class="row buttonRow">
@@ -69,11 +78,11 @@
                         <em>Work in Progress</em>
                     </div>
                     <div class="row buttonRow">
-                        <button id="applemusicAuthButton authButton" type="button"
+                        <button id="applemusicAuthButton" type="button"
                             class="btn btn-primary musicAuthButton authButton">
                             Log in
                         </button>
-                        <button id="applemusicAuthedButton authedButton" type="button"
+                        <button id="applemusicAuthedButton" type="button"
                             class="btn btn-success musicAuthedButton authedButton" disabled>
                             Authenticated!
                         </button>
@@ -87,11 +96,11 @@
                         <em>Work in Progress</em>
                     </div>
                     <div class="row buttonRow">
-                        <button id="youtubemusicAuthButton authButton" type="button"
+                        <button id="youtubemusicAuthButton" type="button"
                             class="btn btn-primary musicAuthButton authButton">
                             Log in
                         </button>
-                        <button id="youtubemusicAuthedButton authedButton" type="button"
+                        <button id="youtubemusicAuthedButton" type="button"
                             class="btn btn-success musicAuthedButton authedButton" disabled>
                             Authenticated!
                         </button>
@@ -101,12 +110,18 @@
         </div>
 
         <div class="row">
-            <div class="step">Step 2: (optional) authenticate with Google</div>
-            <em>Allows the app to save a google sheet in your drive; only gives the app access to it's own file, not your files!<br />
-                If you don't do this, you'll get a CSV file instead, which you can open in any spreadsheet program.
-            </em>
-
             <div class="col">
+                <header class="step">
+                    <h3>Authenticate with Google (optional)</h3>
+                    <p class="tagline">
+                        Allows the app to save a google sheet in your drive.
+                    </p>
+                    <p class="tagline">
+                        If you don't do this, you'll get a CSV file instead, which you can open in any spreadsheet
+                        program.
+                    </p>
+                </header>
+
                 <button id="googleAuthButton" type="button" class="btn btn-primary authButton">
                     Login with Google
                 </button>
@@ -114,27 +129,33 @@
                     Google authenticated!
                 </button>
             </div>
-        </div>
-
-        <div class="row">
-            <div class="step">Step 3: Tweak your output settings</div>
 
             <div class="col">
+                <header class="step">
+                    <h3>Customise your output (optional)</h3>
+                </header>
+
                 <div class="form-check" id="includeZeroScoreSongsCheck">
                     <input class="form-check-input" type="checkbox" id="includeZeroScoreSongs">
                     <label class="form-check-label" for="includeZeroScoreSongs">
                         Include songs with a score of 0
                     </label>
-                    <p><em>(this will produce a sheet with all songs by all artists; around 180k rows)</em></p>
+                    <p class="tagline">
+                        (this will produce a sheet with all 180k karaoke songs)
+                    </p>
                 </div>
             </div>
         </div>
 
         <div class="row">
-            <div class="step">Step 4: Generate your Karaoke Sheet</div>
-            <em>Be patient, this may take up to a minute if you have a large number of liked/followed tracks!</em>
-
             <div class="col">
+                <header class="step">
+                    <h3>Generate your Karaoke Sheet</h3>
+                    <p class="tagline">
+                        Be patient, this may take up to a minute if you have a large number of liked/followed tracks!
+                    </p>
+                </header>
+
                 <button id="buildSheetButton" type="button" class="btn btn-primary">
                     Generate
                 </button>
@@ -145,8 +166,12 @@
         </div>
 
         <div id="sheetLink" class="row" style="display: none;">
-            <div class="step">Step 5: Open your generated Karaoke Sheet</div>
-            <em>I recommend sorting by the "Track Count x Karaoke Popularity" column to find easy wins!</em>
+            <header class="step">
+                <h3>Open your generated Karaoke Sheet</h3>
+                <p class="tagline">
+                    Try sorting by different columns for different kinds of inspiration!
+                </p>
+            </header>
 
             <div class="col">
                 <a class="karaokeSheetLink" href="#" target="_blank">Karaoke Sheet</a>
@@ -154,9 +179,12 @@
         </div>
 
         <div class="row">
-            <div class="step">Reset Auth</div>
-            <em>If you want to clear this session (e.g. to log in with a different account), click here!</em>
-
+            <header class="step">
+                <h3>Reset Auth</h3>
+                <p class="tagline">
+                    If you want to clear this session (e.g. to log in with a different account), click here!
+                </p>
+            </header>
             <div class="col">
                 <button id="clearSessionButton" type="button" class="btn btn-danger">
                     Reset session
@@ -181,7 +209,6 @@
         </div>
     </div>
 
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
         integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
         crossorigin="anonymous"></script>

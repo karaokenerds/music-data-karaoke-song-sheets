@@ -10,6 +10,7 @@ from flask import (
 
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
+from google.oauth2.credentials import Credentials
 
 
 ##########################################################################
@@ -115,3 +116,22 @@ def write_rows_to_google_sheet(spreadsheet_id, google_creds, header_values, data
         valueInputOption="RAW",
         body=data_body,
     ).execute()
+
+
+def create_and_write_google_sheet(google_token, username, header_values, data_values):
+    print("Creating (or finding existing) google sheet and writing rows to it")
+    google_creds = Credentials(token=google_token["access_token"])
+
+    sheet_title = f"{username}'s KaraokeHunt Sheet"
+    spreadsheet_id = find_google_sheet_id(sheet_title, google_creds)
+
+    if spreadsheet_id is None:
+        spreadsheet_id = create_google_sheet(sheet_title, google_creds)
+
+    write_rows_to_google_sheet(spreadsheet_id, google_creds, header_values, data_values)
+
+    print(
+        f"Google Sheet created for user {username}: https://docs.google.com/spreadsheets/d/{spreadsheet_id} "
+    )
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+    return sheet_url

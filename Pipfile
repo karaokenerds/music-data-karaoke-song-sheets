@@ -13,6 +13,7 @@ google-api-python-client = "*"
 spotipy = "*"
 flask = "*"
 pathlib = "*"
+ytmusicapi = "*"
 
 [dev-packages]
 

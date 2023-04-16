@@ -19,6 +19,12 @@ const loading = () => {
 document.getElementById("spotifyAuthButton").onclick = function () {
     window.location.href = "/authenticate/spotify";
 };
+document.getElementById("applemusicAuthButton").onclick = function () {
+    window.location.href = "/authenticate/applemusic";
+};
+document.getElementById("youtubemusicAuthButton").onclick = function () {
+    window.location.href = "/authorize_youtubemusic";
+};
 
 document.getElementById("lastfmAuthButton").onclick = function () {
     let lastfmUsername = document.getElementById("lastfmUsername").value;

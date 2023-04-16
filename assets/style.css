@@ -7,54 +7,76 @@ body {
     font-family: "Source Sans Pro", sans-serif;
 }
 
-body>.container {
+body>div.container {
+    background-color: #262D34;
+    max-width: 800px;
+    margin: 0 auto;
     padding: 30px;
 }
 
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    background-color: #262D34;
-}
-
-img.logo {
+header>img.logo {
     display: block;
     width: 200px;
+    margin: 0 auto;
 }
 
 h1 {
     font-size: 2.5em;
-    margin-bottom: 20px;
     color: rgb(243, 188, 79);
     font-family: "Righteous", sans-serif;
     font-size: 30px;
+    margin-bottom: 0;
 }
+
+h3 {
+    font-size: 18px;
+}
+
 a {
     color: rgb(243, 188, 79);
     text-decoration: none;
 }
 
+.col {
+    line-height: 14px;
+}
+
 button {
     margin-top: 15px;
-}
-
-.step {
-    font-weight: bold;
-    margin-top: 20px;
-}
-
-.logRow {
-    margin-top: 20px;
-}
-
-#logOutput {
-    font-family: "Courier New", monospace;
-    font-size: 0.9em;
-    padding: 10px;
-}
-
-button {
     width: 200px;
+}
+
+header.step {
+    margin-top: 20px;
+}
+
+header.step h3 {
+    font-weight: bold;
+    margin: 0;
+}
+
+p.tagline {
+    font-size: 14px;
+    margin-bottom: 0;
+    font-style: italic;
+}
+.row > .col > header.step > p.tagline {
+    margin-top: 5px;
+}
+
+#includeZeroScoreSongsCheck {
+    margin-top: 5px;
+}
+#includeZeroScoreSongsCheck label.form-check-label {
+    margin-top: 4px;
+}
+#includeZeroScoreSongsCheck p.tagline {
+    margin-top: 5px;
+}
+
+div#musicsourcesRow {
+    padding-left: calc(var(--bs-gutter-x) * .8);
+    padding-right: calc(var(--bs-gutter-x) * .8);
 }
 
 .musicsource {
@@ -72,7 +94,7 @@ button {
 }
 
 .musicsource .notesRow {
-    min-height: 7vh;
+    min-height: 6vh;
     text-align: left;
     font-size: 15px;
 }
@@ -101,13 +123,6 @@ button {
     height: 500px;
 }
 
-#includeZeroScoreSongsCheck {
-    margin: 20px 0 0 0;
-}
-#includeZeroScoreSongsCheck p {
-    margin: 0;
-}
-
 .musicsource img {
     max-width: 150px;
 }
@@ -119,6 +134,7 @@ button {
 body.spotify_authenticated #spotifyAuthedButton {
     display: inline;
 }
+
 body.spotify_authenticated #spotifyAuthButton {
     display: none;
 }
@@ -126,13 +142,33 @@ body.spotify_authenticated #spotifyAuthButton {
 body.lastfm_authenticated #lastfmAuthedButton {
     display: inline;
 }
+
 body.lastfm_authenticated #lastfmAuthButton {
+    display: none;
+}
+
+
+body.applemusic_authenticated #applemusicAuthedButton {
+    display: inline;
+}
+
+body.applemusic_authenticated #applemusicAuthButton {
+    display: none;
+}
+
+
+body.youtubemusic_authenticated #youtubemusicAuthedButton {
+    display: inline;
+}
+
+body.youtubemusic_authenticated #youtubemusicAuthButton {
     display: none;
 }
 
 body.google_authenticated #googleAuthedButton {
     display: inline;
 }
+
 body.google_authenticated #googleAuthButton {
     display: none;
 }

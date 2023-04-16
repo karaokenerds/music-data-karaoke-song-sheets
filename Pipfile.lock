@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "b19059c062106751b516196bd305ff27e2d1cd292cd5e755b2c63ef569a82da8"
+            "sha256": "80e00465e7e72c4cbec74861c50344b0c929078bd40c737aae51e63467d4bcf3"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -432,6 +432,14 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==2.2.3"
+        },
+        "ytmusicapi": {
+            "hashes": [
+                "sha256:3b174cec83e23bef3c9d15df5b9d9bc7c80a51377cdc50682da03b9d2c8a2589",
+                "sha256:769f4ac9fc90b59e9bdb2cc5ef1e9829dd0a7b1ff1a246007b6c738770fce939"
+            ],
+            "index": "pypi",
+            "version": "==1.0.0"
         }
     },
     "develop": {}
