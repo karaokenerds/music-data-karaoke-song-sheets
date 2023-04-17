@@ -14,7 +14,7 @@
 </head>
 
 <body
-    class="{{spotify_authenticated}} {{lastfm_authenticated}} {{google_authenticated}} {{applemusic_authenticated}} {{youtubemusic_authenticated}}">
+    class="{{spotify_authenticated}} {{lastfm_authenticated}} {{google_authenticated}} {{applemusic_authenticated}} {{youtube_authenticated}}">
     <div class="container">
         <header>
             <img class="logo"
@@ -88,19 +88,19 @@
                         </button>
                     </div>
                 </div>
-                <div class="col col-3 youtubemusic musicsource">
+                <div class="col col-3 youtube musicsource">
                     <div class="row logoRow">
-                        <img src="/assets/youtubemusic-logo.png" />
+                        <img src="/assets/youtube-logo.png" />
                     </div>
                     <div class="row notesRow">
-                        <em>Work in Progress</em>
+                        <em>This fetches your "liked" videos and identifies any songs from those</em>
                     </div>
                     <div class="row buttonRow">
-                        <button id="youtubemusicAuthButton" type="button"
+                        <button id="youtubeAuthButton" type="button"
                             class="btn btn-primary musicAuthButton authButton">
                             Log in
                         </button>
-                        <button id="youtubemusicAuthedButton" type="button"
+                        <button id="youtubeAuthedButton" type="button"
                             class="btn btn-success musicAuthedButton authedButton" disabled>
                             Authenticated!
                         </button>

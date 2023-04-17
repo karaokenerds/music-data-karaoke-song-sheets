@@ -22,8 +22,8 @@ document.getElementById("spotifyAuthButton").onclick = function () {
 document.getElementById("applemusicAuthButton").onclick = function () {
     window.location.href = "/authenticate/applemusic";
 };
-document.getElementById("youtubemusicAuthButton").onclick = function () {
-    window.location.href = "/authorize_youtubemusic";
+document.getElementById("youtubeAuthButton").onclick = function () {
+    window.location.href = "/authorize_youtube";
 };
 
 document.getElementById("lastfmAuthButton").onclick = function () {

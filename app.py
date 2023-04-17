@@ -30,7 +30,7 @@ from karaokehunt.karaokehunt import *
 def home():
     spotify_authenticated = "spotify_authenticated" if session.get("spotify_authenticated") else ""
     lastfm_authenticated = "lastfm_authenticated" if session.get("lastfm_authenticated") else ""
-    youtubemusic_authenticated = "youtubemusic_authenticated" if session.get("youtubemusic_authenticated") else ""
+    youtube_authenticated = "youtube_authenticated" if session.get("youtube_authenticated") else ""
     applemusic_authenticated = "applemusic_authenticated" if session.get("applemusic_authenticated") else ""
     google_authenticated = "google_authenticated" if session.get("google_authenticated") else ""
     lastfm_username = session.get("lastfm_username") if session.get("lastfm_username") else ""
@@ -39,7 +39,7 @@ def home():
         "home.html",
         spotify_authenticated=spotify_authenticated,
         lastfm_authenticated=lastfm_authenticated,
-        youtubemusic_authenticated=youtubemusic_authenticated,
+        youtube_authenticated=youtube_authenticated,
         applemusic_authenticated=applemusic_authenticated,
         google_authenticated=google_authenticated,
         lastfm_username=lastfm_username

@@ -157,11 +157,11 @@ body.applemusic_authenticated #applemusicAuthButton {
 }
 
 
-body.youtubemusic_authenticated #youtubemusicAuthedButton {
+body.youtube_authenticated #youtubeAuthedButton {
     display: inline;
 }
 
-body.youtubemusic_authenticated #youtubemusicAuthButton {
+body.youtube_authenticated #youtubeAuthButton {
     display: none;
 }
 

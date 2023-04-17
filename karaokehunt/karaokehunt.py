@@ -13,7 +13,7 @@ from flask import (
 )
 
 # autopep8: off
-from karaokehunt.youtubemusic import *
+from karaokehunt.youtube import *
 from karaokehunt.lastfm import *
 from karaokehunt.spotify import *
 from karaokehunt.utils import *
@@ -32,7 +32,8 @@ CSV_OUTPUT_FILENAME_PREFIX = os.getenv("CSV_OUTPUT_FILENAME_PREFIX")
 def calculate_songs_rows(
         all_karaoke_songs, include_zero_score,
         lastfm_artist_playcounts, lastfm_track_playcounts,
-        spotify_artist_scores, spotify_track_scores
+        spotify_artist_scores, spotify_track_scores,
+        youtube_liked_songs
 ):
     print(f"Filtering, sorting and calculating karaoke songs rows")
 
@@ -44,26 +45,35 @@ def calculate_songs_rows(
         "Karaoke Popularity",
     ]
 
+    music_source_count = 0
+
     if spotify_artist_scores is not None:
         header_values.append("Spotify Artist Score")
         header_values.append("Spotify Track Score")
         header_values.append("Spotify Artist Score x Karaoke Popularity")
         header_values.append("Spotify Track Score x Karaoke Popularity")
+        music_source_count += 1
 
     if lastfm_artist_playcounts is not None:
         header_values.append("Last.fm Artist Play Count")
         header_values.append("Last.fm Track Play Count")
         header_values.append("Last.fm Artist Play Count x Karaoke Popularity")
         header_values.append("Last.fm Track Play Count x Karaoke Popularity")
+        music_source_count += 1
 
-    # If there's only one music data provider, sort by that provider's track x popularity column (7)
-    sort_column = 7
-    if spotify_artist_scores is not None and lastfm_artist_playcounts is not None:
+    if youtube_liked_songs is not None:
+        header_values.append("Youtube Artist Liked")
+        header_values.append("Youtube Track Liked")
+        header_values.append("Youtube Artist Liked x Karaoke Popularity")
+        header_values.append("Youtube Track Liked x Karaoke Popularity")
+        music_source_count += 1
+
+    if music_source_count > 1:
         header_values.append("Combined Artist Score x Karaoke Popularity")
         header_values.append("Combined Track Score x Karaoke Popularity")
 
-        # If there's more than one music data provider, sort by the combined track x popularity column (13)
-        sort_column = 13
+    # Sort by the last column, which will either be the combined score or a single provider track score
+    sort_column = len(header_values) - 1
 
     # Combine track data
     spotify_artist_scores_simple = {}
@@ -91,6 +101,21 @@ def calculate_songs_rows(
                 track["playcount"]
             )
             for track in lastfm_track_playcounts
+        }
+
+    youtube_artist_scores_simple = {}
+    youtube_track_scores_simple = {}
+    if youtube_liked_songs is not None:
+        for track in youtube_liked_songs:
+            artist = track[0].lower()
+            if artist in youtube_artist_scores_simple:
+                youtube_artist_scores_simple[artist] += 1
+            else:
+                youtube_artist_scores_simple[artist] = 1
+
+        youtube_track_scores_simple = {
+            (track[0].lower(), track[1].lower()): 1
+            for track in youtube_liked_songs
         }
 
     data_values = []
@@ -121,6 +146,13 @@ def calculate_songs_rows(
             (artist_lower, title_lower), 0
         ))
 
+        youtube_artist_score_simple = int(youtube_artist_scores_simple.get(
+            artist_lower, 0
+        ))
+        youtube_track_score_simple = int(youtube_track_scores_simple.get(
+            (artist_lower, title_lower), 0
+        ))
+
         song_values = [
             song["Artist"],
             song["Title"],
@@ -128,7 +160,12 @@ def calculate_songs_rows(
             popularity
         ]
 
+        combined_artist_score = 0
+        combined_track_score = 0
+
         if spotify_artist_scores is not None:
+            combined_artist_score += spotify_artist_score_simple
+            combined_track_score += spotify_track_score_simple
             spotify_artist_popularity_score = spotify_artist_score_simple * popularity
             spotify_track_popularity_score = spotify_track_score_simple * popularity
             song_values.append(spotify_artist_score_simple)
@@ -137,6 +174,8 @@ def calculate_songs_rows(
             song_values.append(spotify_track_popularity_score)
 
         if lastfm_artist_playcounts is not None:
+            combined_artist_score += lastfm_artist_playcount_simple
+            combined_track_score += lastfm_track_playcount_simple
             lastfm_artist_popularity_score = lastfm_artist_playcount_simple * popularity
             lastfm_track_popularity_score = lastfm_track_playcount_simple * popularity
             song_values.append(lastfm_artist_playcount_simple)
@@ -144,16 +183,24 @@ def calculate_songs_rows(
             song_values.append(lastfm_artist_popularity_score)
             song_values.append(lastfm_track_popularity_score)
 
-        if spotify_artist_scores is not None and lastfm_artist_playcounts is not None:
-            combined_artist_popularity_score = (spotify_artist_score_simple + lastfm_artist_playcount_simple) * popularity
-            combined_track_popularity_score = (spotify_track_score_simple + lastfm_track_playcount_simple) * popularity
+        if youtube_liked_songs is not None:
+            combined_artist_score += youtube_artist_score_simple
+            combined_track_score += youtube_track_score_simple
+            youtube_artist_popularity_score = youtube_artist_score_simple * popularity
+            youtube_track_popularity_score = youtube_track_score_simple * popularity
+            song_values.append(youtube_artist_score_simple)
+            song_values.append(youtube_track_score_simple)
+            song_values.append(youtube_artist_popularity_score)
+            song_values.append(youtube_track_popularity_score)
+
+        if music_source_count > 1:
+            combined_artist_popularity_score = (combined_artist_score) * popularity
+            combined_track_popularity_score = (combined_track_score) * popularity
             song_values.append(combined_artist_popularity_score)
             song_values.append(combined_track_popularity_score)
 
-        data_values.append(song_values)
-
-    if include_zero_score != "true":
-        data_values = [x for x in data_values if x[sort_column] > 0]
+        if combined_artist_score > 0 or include_zero_score == "true":
+            data_values.append(song_values)
 
     data_values.sort(key=lambda x: int(x[sort_column]), reverse=True)
 
@@ -175,7 +222,7 @@ with app.app_context():
         include_zero_score = request.args.get('includeZeroScoreSongs')
 
         if not session.get("spotify_authenticated") and not session.get("lastfm_authenticated") and \
-           not session.get("applemusic_authenticated") and not session.get("youtubemusic_authenticated"):
+           not session.get("applemusic_authenticated") and not session.get("youtube_authenticated"):
             return "At least one music data source is required", 401
 
         all_karaoke_songs = load_karaoke_songs()
@@ -184,9 +231,7 @@ with app.app_context():
         spotify_track_scores = None
         lastfm_artist_playcounts = None
         lastfm_track_playcounts = None
-
-        username = ''.join(random.choices(string.ascii_lowercase, k=6))
-        print(f'Randomly generated username: {username}')
+        youtube_liked_songs = None
 
         if session.get("spotify_authenticated"):
             print("Spotify auth found, loading spotify data")
@@ -207,26 +252,18 @@ with app.app_context():
             print("Apple Music auth found, loading applemusic data")
             # TODO: Implement
 
-        if session.get("youtubemusic_authenticated"):
-            print("Youtube Music auth found, loading youtubemusic data")
-            youtubemusic_oauth_token = session.get("youtubemusic_token")
+        if session.get("youtube_authenticated"):
+            print("Youtube Music auth found, loading youtube data")
+            youtube_oauth_token = session.get("youtube_token")
 
-            youtubemusic_oauth_token['expires_at'] = str(int(youtubemusic_oauth_token['expires_at']))
-            youtubemusic_oauth_token['expires_in'] = str(youtubemusic_oauth_token['expires_in'])
-            youtubemusic_oauth_token['scope'] = youtubemusic_oauth_token['scope'][0]
-
-            youtubemusic_oauth_token_file = f'{TEMP_OUTPUT_DIR}/youtubemusic_oauth_{username}.json'
-            with open(youtubemusic_oauth_token_file, 'w') as fp:
-                json.dump(youtubemusic_oauth_token, fp)
-
-            youtubemusic_artists = get_library_artists_youtubemusic(username, youtubemusic_oauth_token_file)
-            youtubemusic_tracks = get_library_songs_youtubemusic(username, youtubemusic_oauth_token_file)
-
-            print(youtubemusic_artists)
+            username = get_youtube_channel_id(youtube_oauth_token)
+            youtube_liked_videos = get_liked_videos(username, youtube_oauth_token)
+            youtube_liked_songs = identify_songs_from_youtube_videos(username, youtube_liked_videos)
 
         header_values, data_values = calculate_songs_rows(all_karaoke_songs, include_zero_score,
                                                           lastfm_artist_playcounts, lastfm_track_playcounts,
-                                                          spotify_artist_scores, spotify_track_scores)
+                                                          spotify_artist_scores, spotify_track_scores,
+                                                          youtube_liked_songs)
 
         print("Karaoke song rows calculated successfully, proceeding to write to CSV or Google Sheet")
 

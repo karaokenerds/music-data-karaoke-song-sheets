@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "80e00465e7e72c4cbec74861c50344b0c929078bd40c737aae51e63467d4bcf3"
+            "sha256": "3306bd4366263cf00bcbc28acf7b6b5e597bf7f72d07f3d3d127661853b3bb57"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -432,6 +432,14 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==2.2.3"
+        },
+        "youtube-dl": {
+            "git": "https://github.com/ytdl-org/youtube-dl.git",
+            "hashes": [
+                "sha256:bc59e86c5d15d887ac590454511f08ce2c47698d5a82c27bfe27b5d814bbaed2",
+                "sha256:f1336d5de68647e0364a47b3c0712578e59ec76f02048ff5c50ef1c69d79cd55"
+            ],
+            "ref": "26035bde46c0acc30dc053618451d9aeca4b7709"
         },
         "ytmusicapi": {
             "hashes": [
