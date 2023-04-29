@@ -14,8 +14,15 @@ body>div.container {
     padding: 30px;
 }
 
+header>iframe {
+    float: right;
+}
+header>div.contact {
+    margin-top: 30px;
+    float: right;
+}
+
 header>img.logo {
-    display: block;
     width: 200px;
     margin: 0 auto;
 }
