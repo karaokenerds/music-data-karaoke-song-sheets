@@ -14,7 +14,7 @@ spotipy = "*"
 flask = "*"
 pathlib = "*"
 ytmusicapi = "*"
-youtube-dl = {ref = "master", git = "https://github.com/ytdl-org/youtube-dl.git"}
+yt-dlp = "*"
 
 [dev-packages]
 
