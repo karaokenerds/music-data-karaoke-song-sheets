@@ -128,11 +128,17 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# VSCode
+.vscode
+
 # Environment variables
 .env
 
 # Google API credentials
-credentials.json
+google-credentials.json
+
+# Apple Music API credentials
+apple-credentials.p8
 
 # Output and intermediate files
 workdir/

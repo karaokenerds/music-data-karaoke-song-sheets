@@ -18,6 +18,7 @@ from karaokehunt.lastfm import *
 from karaokehunt.spotify import *
 from karaokehunt.utils import *
 from karaokehunt.google import *
+from karaokehunt.applemusic import *
 from karaokehunt.karaokenerds import *
 # autopep8: on
 
@@ -250,7 +251,12 @@ with app.app_context():
 
         if session.get("applemusic_authenticated"):
             print("Apple Music auth found, loading applemusic data")
-            # TODO: Implement
+            applemusic_token = session.get("applemusic_token")
+
+            print(f"Fetching Apple Music data with token: {applemusic_token}")
+            applemusic_artist_playcounts = get_applemusic_library_artists(applemusic_token)
+            applemusic_track_playcounts = get_applemusic_library_songs(applemusic_token)
+            print(f"Apple Music artist counts: {applemusic_artist_playcounts} and track counts: {applemusic_track_playcounts}")
 
         if session.get("youtube_authenticated"):
             print("Youtube Music auth found, loading youtube data")
