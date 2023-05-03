@@ -20,12 +20,10 @@ TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
 ##########################################################################
 
 with app.app_context():
+
     @app.route("/authenticate/applemusic", methods=["GET"])
-    def authorize_applemusic():
-        print("Entering authorize_applemusic")
-        client_secret = generate_client_secret()
-        session["applemusic_client_secret"] = client_secret
-        print(f"Set client_secret to {client_secret}")
+    def authenticate_applemusic():
+        print("Entering authenticate_applemusic")
 
         authorization_url = (
             f"https://appleid.apple.com/auth/authorize?"
@@ -37,47 +35,63 @@ with app.app_context():
             f"state={session.get('state', 'default_value')}"
         )
 
-        print(f"Exiting authorize_applemusic, redirecting to authorization_url: {authorization_url}")
+        print(
+            f"Exiting authenticate_applemusic, redirecting to authorization_url: {authorization_url}"
+        )
         return redirect(authorization_url)
 
     @app.route("/authorize/applemusic", methods=["POST"])
-    def authenticate_applemusic():
-        print("Entering authenticate_applemusic")
+    def authorize_applemusic():
+        print("Entering authorize_applemusic")
         code = request.form.get("code")
         id_token = request.form.get("id_token")
         state = request.form.get("state")
 
-        print(f"In authenticate_applemusic, code: {code}, id_token: {id_token}: state: {state}")
-        
+        print(
+            f"In authorize_applemusic, code: {code}, id_token: {id_token}: state: {state}"
+        )
+
         if code and id_token:
-            client_secret = session["applemusic_client_secret"]
+            client_secret = generate_client_secret()
+            session["applemusic_client_secret"] = client_secret
+            print(f"Set client_secret to {client_secret}")
 
             token_request_data = {
-                "client_id": APPLE_MUSIC_TEAM_ID,
+                "client_id": APPLE_MUSIC_CLIENT_ID,
                 "client_secret": client_secret,
                 "code": code,
                 "grant_type": "authorization_code",
                 "redirect_uri": APPLE_MUSIC_REDIRECT_URI,
             }
 
+            print(
+                f"About to POST to /auth/token with token_request_data: {token_request_data}"
+            )
             token_response = requests.post(
                 "https://appleid.apple.com/auth/token", data=token_request_data
             )
             token_data = token_response.json()
 
+            print(f"Token response: {token_data}")
+
             if "access_token" in token_data:
                 session["applemusic_token"] = token_data["access_token"]
                 session["applemusic_authenticated"] = True
 
-                print("Apple Music authentication successful")
+                print(
+                    "Found access_token in response, storing in session - Apple Music authentication successful!"
+                )
                 return redirect(url_for("home"))
             else:
-                print("Apple Music authentication failed")
+                print(
+                    "Error: Apple Music authentication failed; access_token not found in response. Redirecting to home"
+                )
                 return redirect(url_for("home"))
         else:
-            print("Apple Music authentication failed")
+            print(
+                "Error: Apple Music authentication failed; code and id_token were not set. Redirecting to home"
+            )
             return redirect(url_for("home"))
-        print("Exiting authenticate_applemusic")
 
 
 def generate_client_secret():
@@ -89,15 +103,17 @@ def generate_client_secret():
         )
 
     current_time = int(time())
+    one_week = 604800
+
     payload = {
         "iss": APPLE_MUSIC_TEAM_ID,
         "aud": "https://appleid.apple.com",
-        "exp": current_time + 3600,
+        "exp": current_time + one_week,
         "iat": current_time,
-        "sub": APPLE_MUSIC_TEAM_ID,
+        "sub": APPLE_MUSIC_CLIENT_ID,
         "nonce": os.urandom(8).hex(),
     }
-    headers = {"kid": APPLE_MUSIC_KEY_ID}
+    headers = {"alg": "ES256", "kid": APPLE_MUSIC_KEY_ID}
 
     print(f"payload: {payload}, headers: {headers}")
 
@@ -109,8 +125,6 @@ def generate_client_secret():
     )
 
     print(f"Returning JWT encoded client_secret: {client_secret}")
-
-    print("Exiting generate_client_secret")
     return client_secret
 
 
