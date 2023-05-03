@@ -251,11 +251,12 @@ with app.app_context():
 
         if session.get("applemusic_authenticated"):
             print("Apple Music auth found, loading applemusic data")
-            applemusic_token = session.get("applemusic_token")
+            applemusic_user_access_token = session.get("applemusic_user_access_token")
+            username = session.get("applemusic_user_email")
 
-            print(f"Fetching Apple Music data with token: {applemusic_token}")
-            applemusic_artist_playcounts = get_applemusic_library_artists(applemusic_token)
-            applemusic_track_playcounts = get_applemusic_library_songs(applemusic_token)
+            print(f"Fetching Apple Music data with token: {applemusic_user_access_token}")
+            applemusic_artist_playcounts = get_applemusic_library_artists(applemusic_user_access_token)
+            applemusic_track_playcounts = get_applemusic_library_songs(applemusic_user_access_token)
             print(f"Apple Music artist counts: {applemusic_artist_playcounts} and track counts: {applemusic_track_playcounts}")
 
         if session.get("youtube_authenticated"):

@@ -45,11 +45,10 @@ with app.app_context():
         print("Entering authorize_applemusic")
         code = request.form.get("code")
         id_token = request.form.get("id_token")
-        state = request.form.get("state")
 
-        print(
-            f"In authorize_applemusic, code: {code}, id_token: {id_token}: state: {state}"
-        )
+        print(f"In authorize_applemusic, received post data:")
+        for key, val in request.form.items():
+            print(key, val)
 
         if code and id_token:
             client_secret = generate_client_secret()
@@ -72,15 +71,26 @@ with app.app_context():
             )
             token_data = token_response.json()
 
-            print(f"Token response: {token_data}")
+            print(f"Apple auth token response: {token_data}")
 
             if "access_token" in token_data:
-                session["applemusic_token"] = token_data["access_token"]
-                session["applemusic_authenticated"] = True
-
                 print(
                     "Found access_token in response, storing in session - Apple Music authentication successful!"
                 )
+
+                session["applemusic_user_access_token"] = token_data["access_token"]
+
+                decoded_id_token = jwt.decode(
+                    token_data["id_token"],
+                    audience=APPLE_MUSIC_CLIENT_ID,
+                    options={"verify_signature": False},
+                )
+                print(f"decoded_id_token: {decoded_id_token}")
+
+                session["applemusic_user_decoded_id_token"] = decoded_id_token
+                session["applemusic_user_email"] = decoded_id_token["email"]
+                session["applemusic_authenticated"] = True
+
                 return redirect(url_for("home"))
             else:
                 print(
@@ -104,11 +114,12 @@ def generate_client_secret():
 
     current_time = int(time())
     one_week = 604800
+    expiry_time = current_time + one_week
 
     payload = {
         "iss": APPLE_MUSIC_TEAM_ID,
         "aud": "https://appleid.apple.com",
-        "exp": current_time + one_week,
+        "exp": expiry_time,
         "iat": current_time,
         "sub": APPLE_MUSIC_CLIENT_ID,
         "nonce": os.urandom(8).hex(),
@@ -128,15 +139,45 @@ def generate_client_secret():
     return client_secret
 
 
-def get_applemusic_library_artists(token):
-    print("Entering get_applemusic_library_artists")
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Music-User-Token": token,
+def generate_developer_headers(user_token):
+    print("Entering generate_developer_headers")
+
+    with open(APPLE_MUSIC_CREDENTIALS_PATH, "r") as f:
+        private_key = f.read()
+
+    headers = {"alg": "ES256", "kid": APPLE_MUSIC_KEY_ID}
+
+    current_time = int(time())
+    one_week = 604800
+    expiry_time = current_time + one_week
+
+    payload = {
+        "iss": APPLE_MUSIC_TEAM_ID,
+        "exp": expiry_time,
+        "iat": current_time,
     }
 
+    jwt_token = jwt.encode(payload, private_key, algorithm="ES256", headers=headers)
+
+    headers = {
+        "Authorization": f"Bearer {jwt_token}",
+        "Content-Type": "application/json",
+        "Music-User-Token": user_token,
+    }
+    print(f"Exiting generate_developer_headers, returning headers: {headers}")
+    return headers
+
+
+def get_applemusic_library_artists(user_token):
+    print(f"Entering get_applemusic_library_artists, user_token: {user_token}")
+    headers = generate_developer_headers(user_token)
+
     url = "https://api.music.apple.com/v1/me/library/artists"
+    print(f"Making request to {url} with headers: {headers}")
+
     response = requests.get(url, headers=headers)
+    print(f"response: {response}")
+
     data = response.json()
 
     if "data" in data:
@@ -148,14 +189,13 @@ def get_applemusic_library_artists(token):
         return []
 
 
-def get_applemusic_library_songs(token):
-    print("Entering get_applemusic_library_songs")
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Music-User-Token": token,
-    }
+def get_applemusic_library_songs(user_token):
+    print(f"Entering get_applemusic_library_songs, user_token: {user_token}")
+    headers = generate_developer_headers(user_token)
 
     url = "https://api.music.apple.com/v1/me/library/songs"
+    print(f"Making request to {url} with headers: {headers}")
+
     response = requests.get(url, headers=headers)
     data = response.json()
 
@@ -173,33 +213,3 @@ def get_applemusic_library_songs(token):
     else:
         print("Failed to fetch Apple Music library songs")
         return []
-
-
-def generate_jwt_token():
-    print("Entering generate_jwt_token")
-    with open(APPLE_MUSIC_CREDENTIALS_PATH, "r") as f:
-        private_key = f.read()
-
-    headers = {"alg": "ES256", "kid": APPLE_MUSIC_KEY_ID}
-
-    payload = {
-        "iss": APPLE_MUSIC_TEAM_ID,
-        "iat": int(time.time()),
-        "exp": int(time.time()) + 86400 * 180,  # 180 days in seconds
-    }
-
-    token = jwt.encode(payload, private_key, algorithm="ES256", headers=headers)
-    print("Exiting generate_jwt_token")
-    return token
-
-
-def get_developer_token():
-    print("Entering get_developer_token")
-    jwt_token = generate_jwt_token()
-    headers = {
-        "Authorization": f"Bearer {jwt_token}",
-        "Content-Type": "application/json",
-        "Music-User-Token": session.get("applemusic_user_token", ""),
-    }
-    print("Exiting get_developer_token")
-    return headers
