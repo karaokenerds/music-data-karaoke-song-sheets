@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from flask import redirect, request, session, url_for, current_app as app
 
@@ -156,7 +157,10 @@ def create_and_write_google_sheet(google_token, username, header_values, data_va
     print("Creating (or finding existing) google sheet and writing rows to it")
     google_creds = Credentials(token=google_token["access_token"])
 
-    sheet_title = f"{username}'s KaraokeHunt Sheet"
+    now = datetime.now()
+    date_time = now.strftime("%Y-%m-%d %H:%M:%S")
+    
+    sheet_title = f"{username}'s KaraokeHunt Sheet {date_time}"
     spreadsheet_id = find_google_sheet_id(sheet_title, google_creds)
 
     if spreadsheet_id is None:

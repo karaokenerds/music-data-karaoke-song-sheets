@@ -268,10 +268,12 @@ with app.app_context():
 
         all_karaoke_songs = load_karaoke_songs()
 
-        spotify_artist_scores = None
-        spotify_track_scores = None
         lastfm_artist_playcounts = None
         lastfm_track_playcounts = None
+        spotify_artist_scores = None
+        spotify_track_scores = None
+        applemusic_artists = None
+        applemusic_tracks = None
         youtube_liked_songs = None
 
         usernames = {
