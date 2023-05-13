@@ -19,6 +19,7 @@ app.app_context().push()
 
 # autopep8: off
 from karaokehunt.karaokehunt import *
+from karaokehunt.applemusic import generate_developer_token
 # autopep8: on
 
 ##########################################################################
@@ -28,6 +29,11 @@ from karaokehunt.karaokehunt import *
 
 @app.route("/", methods=["GET"])
 def home():
+    applemusic_developer_token = session.get("applemusic_developer_token")
+    if not applemusic_developer_token:
+        applemusic_developer_token = generate_developer_token()
+        session["applemusic_developer_token"] = applemusic_developer_token
+    
     spotify_authenticated = "spotify_authenticated" if session.get("spotify_authenticated") else ""
     lastfm_authenticated = "lastfm_authenticated" if session.get("lastfm_authenticated") else ""
     youtube_authenticated = "youtube_authenticated" if session.get("youtube_authenticated") else ""
@@ -37,6 +43,7 @@ def home():
 
     return render_template(
         "home.html",
+        applemusic_developer_token=applemusic_developer_token,
         spotify_authenticated=spotify_authenticated,
         lastfm_authenticated=lastfm_authenticated,
         youtube_authenticated=youtube_authenticated,

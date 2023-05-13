@@ -179,3 +179,9 @@ body.google_authenticated #googleAuthedButton {
 body.google_authenticated #googleAuthButton {
     display: none;
 }
+
+#openSheetButton {
+    vertical-align: bottom;
+    width: 200px;
+    margin-left: 10px;
+}

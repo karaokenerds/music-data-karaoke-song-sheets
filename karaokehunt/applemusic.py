@@ -21,9 +21,17 @@ TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
 
 with app.app_context():
 
-    @app.route("/authenticate/applemusic", methods=["GET"])
-    def authenticate_applemusic():
-        print("Entering authenticate_applemusic")
+    @app.route("/authorize/applemusic_token", methods=["POST"])
+    def authorize_applemusic_token():
+        print("Entering authorize_applemusic_token")
+        data = request.json
+        music_user_token = data.get("music_user_token")
+
+        print(
+            f"Setting applemusic_music_user_token in session to music_user_token: {music_user_token}"
+        )
+
+        session["applemusic_music_user_token"] = music_user_token
 
         authorization_url = (
             f"https://appleid.apple.com/auth/authorize?"
@@ -36,9 +44,9 @@ with app.app_context():
         )
 
         print(
-            f"Exiting authenticate_applemusic, redirecting to authorization_url: {authorization_url}"
+            f"Exiting authenticate_applemusic, responding with authorization_url: {authorization_url}"
         )
-        return redirect(authorization_url)
+        return authorization_url
 
     @app.route("/authorize/applemusic", methods=["POST"])
     def authorize_applemusic():
@@ -139,8 +147,8 @@ def generate_client_secret():
     return client_secret
 
 
-def generate_developer_headers(user_token):
-    print("Entering generate_developer_headers")
+def generate_developer_token():
+    print("Entering generate_developer_token")
 
     with open(APPLE_MUSIC_CREDENTIALS_PATH, "r") as f:
         private_key = f.read()
@@ -157,20 +165,37 @@ def generate_developer_headers(user_token):
         "iat": current_time,
     }
 
-    jwt_token = jwt.encode(payload, private_key, algorithm="ES256", headers=headers)
+    developer_token = jwt.encode(
+        payload, private_key, algorithm="ES256", headers=headers
+    )
+    return developer_token
+
+
+def get_request_headers(developer_token, user_token):
+    print("Entering get_request_headers")
+
+    if developer_token is None or user_token is None:
+        print("Error: missing user token")
+        return
 
     headers = {
-        "Authorization": f"Bearer {jwt_token}",
+        "Authorization": f"Bearer {developer_token}",
         "Content-Type": "application/json",
         "Music-User-Token": user_token,
     }
-    print(f"Exiting generate_developer_headers, returning headers: {headers}")
+    print(f"Exiting get_request_headers, returning headers: {headers}")
     return headers
 
 
-def get_applemusic_library_artists(user_token):
-    print(f"Entering get_applemusic_library_artists, user_token: {user_token}")
-    headers = generate_developer_headers(user_token)
+def get_applemusic_library_artists(developer_token, user_token):
+    print(
+        f"Entering get_applemusic_library_artists, developer_token: {developer_token} user_token: {user_token}"
+    )
+    if developer_token is None or user_token is None:
+        print("Error: missing user token")
+        return
+
+    headers = get_request_headers(developer_token, user_token)
 
     url = "https://api.music.apple.com/v1/me/library/artists"
     print(f"Making request to {url} with headers: {headers}")
@@ -189,9 +214,13 @@ def get_applemusic_library_artists(user_token):
         return []
 
 
-def get_applemusic_library_songs(user_token):
+def get_applemusic_library_songs(developer_token, user_token):
     print(f"Entering get_applemusic_library_songs, user_token: {user_token}")
-    headers = generate_developer_headers(user_token)
+    if developer_token is None or user_token is None:
+        print("Error: missing user token")
+        return
+
+    headers = get_request_headers(developer_token, user_token)
 
     url = "https://api.music.apple.com/v1/me/library/songs"
     print(f"Making request to {url} with headers: {headers}")

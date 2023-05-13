@@ -17,6 +17,7 @@ ytmusicapi = "*"
 yt-dlp = "*"
 pyjwt = "*"
 cryptography = "*"
+coolname = "*"
 
 [dev-packages]
 

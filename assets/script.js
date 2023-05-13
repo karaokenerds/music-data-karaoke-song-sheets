@@ -19,9 +19,42 @@ const loading = () => {
 document.getElementById("spotifyAuthButton").onclick = function () {
     window.location.href = "/authenticate/spotify";
 };
-document.getElementById("applemusicAuthButton").onclick = function () {
-    window.location.href = "/authenticate/applemusic";
-};
+
+async function appleMusicAuth() {
+    let music = MusicKit.getInstance();
+    const music_user_token = await music.authorize()
+
+    console.log("Apple MusicKit JS authorized");
+
+    try {
+        console.log("POSTing music_user_token to /authorize/applemusic_token - " + music_user_token);
+        const response = await fetch('/authorize/applemusic_token', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ "music_user_token": music_user_token })
+        });
+
+        if (response.ok) {
+            appleIDAuthURL = await response.text();
+            console.log("Redirecting browser to Apple ID Auth URL from response: " + appleIDAuthURL)
+            window.location.href = appleIDAuthURL;
+        } else {
+            const errorBody = await response.text();
+            throw new Error(errorBody);
+        }
+    } catch (errorBody) {
+        notLoading();
+        document.getElementById("errorsModaliFrame").srcdoc = errorBody;
+        $('#errorsModal').modal();
+        console.error("Error:", errorBody);
+    }
+}
+
+document.getElementById("applemusicAuthButton").onclick = appleMusicAuth;
+
 document.getElementById("youtubeAuthButton").onclick = function () {
     window.location.href = "/authorize_youtube";
 };
@@ -47,8 +80,10 @@ clearSessionButton.addEventListener("click", () => {
     window.location.href = "/reset";
 });
 
+const openSheetButton = document.getElementById("openSheetButton");
 const buildSheetButton = document.getElementById("buildSheetButton");
-buildSheetButton.addEventListener("click", async () => {
+
+async function buildSheetAction() {
     loading();
 
     try {
@@ -56,13 +91,17 @@ buildSheetButton.addEventListener("click", async () => {
         // Call the /generate_sheet route
         const response = await fetch("/generate_sheet?includeZeroScoreSongs=" + includeZeroScoreSongs);
         if (response.ok) {
-            const sheetUrl = await response.text();
+            karaokeSheetURL = await response.text();
+            openSheetButton.style.display = "inline-block";
 
-            const sheetLink = document.getElementById("sheetLink");
-            sheetLink.querySelector("a").href = sheetUrl;
-            sheetLink.style.display = "block";
+            buildSheetButton.classList.remove('btn-primary');
+            buildSheetButton.classList.add('btn-success');
+            buildSheetButton.classList.add('disabled');
+            buildSheetButton.disabled = true;
+            buildSheetButton.removeEventListener("click", buildSheetAction);
 
             notLoading();
+            window.open(karaokeSheetURL, '_blank');
         } else {
             const errorBody = await response.text();
             throw new Error(errorBody);
@@ -73,4 +112,6 @@ buildSheetButton.addEventListener("click", async () => {
         $('#errorsModal').modal();
         console.error("Error:", errorBody);
     }
-});
+}
+
+buildSheetButton.addEventListener("click", buildSheetAction);

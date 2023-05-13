@@ -1,12 +1,6 @@
 import os
 
-from flask import (
-    redirect,
-    request,
-    session,
-    url_for,
-    current_app as app
-)
+from flask import redirect, request, session, url_for, current_app as app
 
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
@@ -33,6 +27,7 @@ def get_google_flow():
 
 
 with app.app_context():
+
     @app.route("/authorize_google", methods=["GET"])
     def authorize_google():
         flow = get_google_flow()
@@ -62,6 +57,7 @@ with app.app_context():
 ##########################################################################
 ###########          Google Sheet Find & Create                ###########
 ##########################################################################
+
 
 def find_google_sheet_id(sheet_title, creds):
     print(f"Finding google sheet with title: {sheet_title}")
@@ -97,14 +93,52 @@ def create_google_sheet(title, creds):
 ###########                Write Rows to Sheet                 ###########
 ##########################################################################
 
-def write_rows_to_google_sheet(spreadsheet_id, google_creds, header_values, data_values):
+
+def write_rows_to_google_sheet(
+    spreadsheet_id, google_creds, header_values, data_values
+):
     print(f"Writing karaoke songs to google sheet with ID: {spreadsheet_id}")
     service = build("sheets", "v4", credentials=google_creds)
 
+    sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+
+    sheets = sheet_metadata.get("sheets", "")
+    sheet_id = sheets[0].get("properties", {}).get("sheetId", 0)
+
+    headerRowValues = []
+    for cell in header_values:
+        headerRowValues.append(
+            {
+                "userEnteredFormat": {
+                    "wrapStrategy": "WRAP",
+                    "textFormat": {"fontSize": 8, "bold": True},
+                }
+            }
+        )
+
+    setHeaderFormatting = {
+        "updateCells": {
+            "range": {
+                "sheetId": sheet_id,
+                "startRowIndex": 0,
+                "endRowIndex": 1,
+                "startColumnIndex": 0,
+                "endColumnIndex": 20,
+            },
+            "rows": [{"values": headerRowValues}],
+            "fields": "*",
+        }
+    }
+
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id, body={"requests": [setHeaderFormatting]}
+    ).execute()
+
     header_body = {"values": [header_values]}
+
     service.spreadsheets().values().update(
         spreadsheetId=spreadsheet_id,
-        range="A1:N1",
+        range="A1:Z1",
         valueInputOption="RAW",
         body=header_body,
     ).execute()
@@ -112,7 +146,7 @@ def write_rows_to_google_sheet(spreadsheet_id, google_creds, header_values, data
     data_body = {"values": data_values}
     service.spreadsheets().values().update(
         spreadsheetId=spreadsheet_id,
-        range=f"A2:N{len(data_values) + 1}",
+        range=f"A2:Z{len(data_values) + 1}",
         valueInputOption="RAW",
         body=data_body,
     ).execute()

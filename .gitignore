@@ -141,5 +141,5 @@ google-credentials.json
 apple-credentials.p8
 
 # Output and intermediate files
-workdir/
+workdir*
 logs.txt
