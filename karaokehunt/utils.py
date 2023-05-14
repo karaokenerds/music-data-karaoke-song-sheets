@@ -1,6 +1,7 @@
 import io
 import os
 import sys
+import json
 
 from flask import (
     Response,
@@ -37,6 +38,12 @@ sys.stdout = log_capture
 
 
 with app.app_context():
+    @app.route("/debug", methods=["GET"])
+    def debug():
+        debug_html = '<h1>DEBUG: Session data</h1><pre style="white-space: pre-wrap; overflow-wrap: break-word;">'
+        debug_html += json.dumps(session, indent=4) + '</pre>'
+        return debug_html
+
     @app.route("/logs", methods=["GET"])
     def get_log_output():
         log_output = log_capture.getvalue()

@@ -16,6 +16,7 @@ from spotipy.oauth2 import SpotifyOAuth
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
+SPOTIFY_SCOPES = "user-top-read user-follow-read user-library-read"
 
 TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
 
@@ -42,12 +43,13 @@ def get_spotify_user_id(access_token):
 with app.app_context():
     @app.route("/authenticate/spotify")
     def authenticate_spotify():
+        cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
         auth_manager = spotipy.SpotifyOAuth(
             client_id=os.environ.get("SPOTIFY_CLIENT_ID"),
             client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET"),
             redirect_uri=os.environ.get("SPOTIFY_REDIRECT_URI"),
-            scope="user-top-read user-follow-read user-library-read",
-            cache_path=".cache",
+            scope=SPOTIFY_SCOPES,
+            cache_handler=cache_handler,
             show_dialog=True,
         )
         auth_url = auth_manager.get_authorize_url()
@@ -55,11 +57,13 @@ with app.app_context():
 
     @app.route("/callback/spotify")
     def spotify_callback():
+        cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
         auth_manager = SpotifyOAuth(
             client_id=os.environ.get("SPOTIFY_CLIENT_ID"),
             client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET"),
             redirect_uri=os.environ.get("SPOTIFY_REDIRECT_URI"),
-            scope="user-top-read user-follow-read user-library-read",
+            scope=SPOTIFY_SCOPES,
+            cache_handler=cache_handler,
             show_dialog=True,
         )
         code = request.args.get("code")

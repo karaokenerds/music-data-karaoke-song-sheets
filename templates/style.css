@@ -91,7 +91,7 @@ div#musicsourcesRow {
 }
 
 .musicsource .logoRow {
-    min-height: 8vh;
+    min-height: 10vh;
     text-align: center;
 }
 
@@ -101,7 +101,7 @@ div#musicsourcesRow {
 }
 
 .musicsource .notesRow {
-    min-height: 6vh;
+    min-height: 10vh;
     text-align: left;
     font-size: 15px;
 }
@@ -180,8 +180,12 @@ body.google_authenticated #googleAuthButton {
     display: none;
 }
 
+#buildSheetButton {
+    margin-right: 5px;
+}
+
 #openSheetButton {
     vertical-align: bottom;
     width: 200px;
-    margin-left: 10px;
+    margin-top: 10px;
 }
