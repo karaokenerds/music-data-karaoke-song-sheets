@@ -2,6 +2,7 @@ import os
 import csv
 import random
 import string
+import logging
 from coolname import generate_slug
 
 from flask import (
@@ -11,7 +12,11 @@ from flask import (
     url_for,
     current_app as app,
     send_from_directory,
+    render_template,
+    g
 )
+
+logger = logging.getLogger("karaokehunt")
 
 # autopep8: off
 from karaokehunt.youtube import *
@@ -25,6 +30,51 @@ from karaokehunt.karaokenerds import *
 
 TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
 CSV_OUTPUT_FILENAME_PREFIX = os.getenv("CSV_OUTPUT_FILENAME_PREFIX")
+
+
+##########################################################################
+###########          Render HTML homepage with strings         ###########
+##########################################################################
+
+
+@app.route("/", methods=["GET"])
+def home():
+    logger.info("Homepage requested")
+
+    applemusic_developer_token = session.get("applemusic_developer_token")
+    if not applemusic_developer_token:
+        applemusic_developer_token = generate_developer_token()
+        session["applemusic_developer_token"] = applemusic_developer_token
+
+    spotify_authenticated = (
+        "spotify_authenticated" if session.get("spotify_authenticated") else ""
+    )
+    lastfm_authenticated = (
+        "lastfm_authenticated" if session.get("lastfm_authenticated") else ""
+    )
+    youtube_authenticated = (
+        "youtube_authenticated" if session.get("youtube_authenticated") else ""
+    )
+    applemusic_authenticated = (
+        "applemusic_authenticated" if session.get("applemusic_authenticated") else ""
+    )
+    google_authenticated = (
+        "google_authenticated" if session.get("google_authenticated") else ""
+    )
+    lastfm_username = (
+        session.get("lastfm_username") if session.get("lastfm_username") else ""
+    )
+
+    return render_template(
+        "home.html",
+        applemusic_developer_token=applemusic_developer_token,
+        spotify_authenticated=spotify_authenticated,
+        lastfm_authenticated=lastfm_authenticated,
+        youtube_authenticated=youtube_authenticated,
+        applemusic_authenticated=applemusic_authenticated,
+        google_authenticated=google_authenticated,
+        lastfm_username=lastfm_username,
+    )
 
 ##########################################################################
 ###########               Calculate Songs Rows                 ###########
@@ -259,7 +309,6 @@ with app.app_context():
 
     @app.route("/generate_sheet")
     def generate_sheet():
-        username = None
         include_zero_score = request.args.get('includeZeroScoreSongs')
 
         if not session.get("spotify_authenticated") and not session.get("lastfm_authenticated") and \
@@ -276,33 +325,23 @@ with app.app_context():
         applemusic_tracks = None
         youtube_liked_songs = None
 
-        usernames = {
-            "lastfm": None,
-            "spotify": None,
-            "applemusic": None,
-            "youtube": None
-        }
-
         if session.get("lastfm_authenticated"):
             print("Last.fm auth found, loading lastfm data")
-            usernames["lastfm"] = session.get("lastfm_username")
-            lastfm_artist_playcounts = get_top_artists_lastfm(usernames["lastfm"])
-            lastfm_track_playcounts = get_top_tracks_lastfm(usernames["lastfm"])
+            lastfm_artist_playcounts = get_top_artists_lastfm(session.get("lastfm_username"))
+            lastfm_track_playcounts = get_top_tracks_lastfm(session.get("lastfm_username"))
 
         if session.get("spotify_authenticated"):
             print("Spotify auth found, loading spotify data")
             spotify_auth_token = session.get("spotify_auth_token")
             spotify_auth_token = spotify_auth_token["access_token"]
 
-            usernames["spotify"] = get_spotify_user_id(spotify_auth_token)
-            spotify_artist_scores = get_top_artists_spotify(usernames["spotify"], spotify_auth_token)
-            spotify_track_scores = get_top_tracks_spotify(usernames["spotify"], spotify_auth_token)
+            spotify_artist_scores = get_top_artists_spotify(session.get("spotify_username"), spotify_auth_token)
+            spotify_track_scores = get_top_tracks_spotify(session.get("spotify_username"), spotify_auth_token)
 
         if session.get("applemusic_authenticated"):
             print("Apple Music auth found, loading applemusic data")
             applemusic_music_user_token = session.get("applemusic_music_user_token")
             applemusic_developer_token = session.get("applemusic_developer_token")
-            usernames["applemusic"] = session.get("applemusic_user_email")
 
             print(f"Fetching Apple Music data with token: {applemusic_music_user_token}")
             applemusic_artists = get_applemusic_library_artists(applemusic_developer_token, applemusic_music_user_token)
@@ -312,21 +351,8 @@ with app.app_context():
         if session.get("youtube_authenticated"):
             print("Youtube Music auth found, loading youtube data")
             youtube_oauth_token = session.get("youtube_token")
-
-            usernames["youtube"] = get_youtube_channel_id(youtube_oauth_token)
-            youtube_liked_videos = get_liked_videos(usernames["youtube"], youtube_oauth_token)
-            youtube_liked_songs = identify_songs_from_youtube_videos(usernames["youtube"], youtube_liked_videos)
-
-        if username is None:
-            username = usernames["lastfm"]
-        if username is None:
-            username = usernames["spotify"]
-        if username is None:
-            username = usernames["applemusic"]
-        if username is None:
-            username = usernames["youtube"]
-        if username is None:
-            username = generate_slug(2)
+            youtube_liked_videos = get_liked_videos(session["youtube_username"], youtube_oauth_token)
+            youtube_liked_songs = identify_songs_from_youtube_videos(session["youtube_username"], youtube_liked_videos)
 
         header_values, data_values = calculate_songs_rows(all_karaoke_songs, include_zero_score,
                                                           lastfm_artist_playcounts, lastfm_track_playcounts,
@@ -337,14 +363,14 @@ with app.app_context():
         print("Karaoke song rows calculated successfully, proceeding to write to CSV or Google Sheet")
 
         if session.get("google_authenticated"):
-            return create_and_write_google_sheet(session.get("google_token"), username, header_values, data_values)
+            return create_and_write_google_sheet(session.get("google_token"), g.username, header_values, data_values)
         else:
             print("No google auth found, writing output to CSV file instead")
-            csv_file = f'{TEMP_OUTPUT_DIR}/{CSV_OUTPUT_FILENAME_PREFIX}{username}.csv'
+            csv_file = f'{TEMP_OUTPUT_DIR}/{CSV_OUTPUT_FILENAME_PREFIX}{g.username}.csv'
 
             with open(csv_file, 'w') as file:
                 writer = csv.writer(file)
                 writer.writerow(header_values)
                 writer.writerows(data_values)
 
-            return f'/fetch_csv?username={username}'
+            return f'/fetch_csv?username={g.username}'

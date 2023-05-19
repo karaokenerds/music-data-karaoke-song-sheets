@@ -2,14 +2,11 @@ import json
 import os
 import sys
 import requests
+import logging
 
-from flask import (
-    request,
-    redirect,
-    session,
-    url_for,
-    current_app as app
-)
+from flask import request, redirect, session, url_for, current_app as app, g
+
+logger = logging.getLogger("karaokehunt")
 
 LASTFM_API_KEY = os.getenv("LASTFM_API_KEY")
 TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
@@ -19,12 +16,16 @@ TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
 ##########################################################################
 
 with app.app_context():
+
     @app.route("/authenticate/lastfm")
     def authenticate_lastfm():
-        session["lastfm_username"] = request.args.get("username")
+        username = request.args.get("username")
+        session["lastfm_username"] = username
+        session["username"] = username
+        g.username = username
         session["lastfm_authenticated"] = True
 
-        print(f'Last.fm authentication successful, username: {session["lastfm_username"]}')
+        logger.info(f"Last.fm username stored in session: {username}")
 
         return redirect(url_for("home"))
 
@@ -35,18 +36,18 @@ with app.app_context():
 
 
 def get_top_artists_lastfm(username):
-    cache_file = f'{TEMP_OUTPUT_DIR}/top_artists_lastfm_{username}.json'
+    cache_file = f"{TEMP_OUTPUT_DIR}/top_artists_lastfm_{username}.json"
 
     # Load data from cache file if it exists
     if os.path.exists(cache_file):
-        print(
+        logger.info(
             f"Found top artists cache file for user {username}, loading this instead of fetching again"
         )
         with open(cache_file, "r", encoding="utf-8") as f:
             all_top_artists = json.load(f)
             return all_top_artists
 
-    print(
+    logger.info(
         f"No top artists cache file found for user {username}, fetching from last.fm"
     )
 
@@ -70,25 +71,25 @@ def get_top_artists_lastfm(username):
 
         return all_top_artists
     else:
-        print(
+        logger.error(
             f"Error {response.status_code}: Failed to fetch top artists for user {username}"
         )
         sys.exit(1)
 
 
 def get_top_tracks_lastfm(username):
-    cache_file = f'{TEMP_OUTPUT_DIR}/top_tracks_lastfm_{username}.json'
+    cache_file = f"{TEMP_OUTPUT_DIR}/top_tracks_lastfm_{username}.json"
 
     # Load data from cache file if it exists
     if os.path.exists(cache_file):
-        print(
+        logger.info(
             f"Found top tracks cache file for user {username}, loading this instead of fetching again"
         )
         with open(cache_file, "r", encoding="utf-8") as f:
             all_top_tracks = json.load(f)
             return all_top_tracks
 
-    print(
+    logger.info(
         f"No top tracks cache file found for user {username}, beginning last.fm fetch loop"
     )
 
@@ -110,7 +111,7 @@ def get_top_tracks_lastfm(username):
             "page": page,
         }
 
-        print(
+        logger.info(
             f"Inside top tracks fetch loop, page: {page}, fetched_tracks: {fetched_tracks}, max_tracks: {max_tracks}"
         )
         response = requests.get(url, params=params)
@@ -122,14 +123,14 @@ def get_top_tracks_lastfm(username):
             all_top_tracks.extend(tracks)
 
             if num_new_tracks < 1000:
-                print(
+                logger.info(
                     f"Fetched less than 1000 tracks while looping for user {username}, breaking out of fetch loop"
                 )
                 break
 
             page += 1
         else:
-            print(
+            logger.error(
                 f"Error {response.status_code} while fetching top tracks for user {username}, breaking out of fetch loop"
             )
             break
