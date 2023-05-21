@@ -373,10 +373,10 @@ with app.app_context():
             spotify_auth_token = spotify_auth_token["access_token"]
 
             spotify_artist_scores = get_top_artists_spotify(
-                session.get("spotify_username"), spotify_auth_token
+                session.get("username"), spotify_auth_token
             )
             spotify_track_scores = get_top_tracks_spotify(
-                session.get("spotify_username"), spotify_auth_token
+                session.get("username"), spotify_auth_token
             )
 
         if session.get("applemusic_authenticated"):
