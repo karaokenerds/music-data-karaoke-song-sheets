@@ -1,11 +1,14 @@
 import os
 import jwt
 import requests
+import logging
 from time import time
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
-from flask import redirect, request, session, url_for, current_app as app
+from flask import redirect, request, session, url_for, current_app as app, g
+
+logger = logging.getLogger("karaokehunt")
 
 APPLE_MUSIC_TEAM_ID = os.environ.get("APPLE_MUSIC_TEAM_ID")
 APPLE_MUSIC_CLIENT_ID = os.environ.get("APPLE_MUSIC_CLIENT_ID")
@@ -23,11 +26,11 @@ with app.app_context():
 
     @app.route("/authorize/applemusic_token", methods=["POST"])
     def authorize_applemusic_token():
-        print("Entering authorize_applemusic_token")
+        logger.info("Entering authorize_applemusic_token")
         data = request.json
         music_user_token = data.get("music_user_token")
 
-        print(
+        logger.info(
             f"Setting applemusic_music_user_token in session to music_user_token: {music_user_token}"
         )
 
@@ -43,25 +46,25 @@ with app.app_context():
             f"state={session.get('state', 'default_value')}"
         )
 
-        print(
+        logger.info(
             f"Exiting authenticate_applemusic, responding with authorization_url: {authorization_url}"
         )
         return authorization_url
 
     @app.route("/authorize/applemusic", methods=["POST"])
     def authorize_applemusic():
-        print("Entering authorize_applemusic")
+        logger.info("Entering authorize_applemusic")
         code = request.form.get("code")
         id_token = request.form.get("id_token")
 
-        print(f"In authorize_applemusic, received post data:")
+        logger.info(f"In authorize_applemusic, received post data:")
         for key, val in request.form.items():
-            print(key, val)
+            logger.info(key, val)
 
         if code and id_token:
             client_secret = generate_client_secret()
             session["applemusic_client_secret"] = client_secret
-            print(f"Set client_secret to {client_secret}")
+            logger.info(f"Set client_secret to {client_secret}")
 
             token_request_data = {
                 "client_id": APPLE_MUSIC_CLIENT_ID,
@@ -71,7 +74,7 @@ with app.app_context():
                 "redirect_uri": APPLE_MUSIC_REDIRECT_URI,
             }
 
-            print(
+            logger.info(
                 f"About to POST to /auth/token with token_request_data: {token_request_data}"
             )
             token_response = requests.post(
@@ -79,10 +82,10 @@ with app.app_context():
             )
             token_data = token_response.json()
 
-            print(f"Apple auth token response: {token_data}")
+            logger.info(f"Apple auth token response: {token_data}")
 
             if "access_token" in token_data:
-                print(
+                logger.info(
                     "Found access_token in response, storing in session - Apple Music authentication successful!"
                 )
 
@@ -93,27 +96,31 @@ with app.app_context():
                     audience=APPLE_MUSIC_CLIENT_ID,
                     options={"verify_signature": False},
                 )
-                print(f"decoded_id_token: {decoded_id_token}")
+                logger.info(f"decoded_id_token: {decoded_id_token}")
 
                 session["applemusic_user_decoded_id_token"] = decoded_id_token
-                session["applemusic_user_email"] = decoded_id_token["email"]
+                username = decoded_id_token["email"]
+                session["applemusic_username"] = username
+                session["username"] = username
+                g.username = username
+
                 session["applemusic_authenticated"] = True
 
                 return redirect(url_for("home"))
             else:
-                print(
+                logger.info(
                     "Error: Apple Music authentication failed; access_token not found in response. Redirecting to home"
                 )
                 return redirect(url_for("home"))
         else:
-            print(
+            logger.info(
                 "Error: Apple Music authentication failed; code and id_token were not set. Redirecting to home"
             )
             return redirect(url_for("home"))
 
 
 def generate_client_secret():
-    print("Entering generate_client_secret")
+    logger.info("Entering generate_client_secret")
     with open(APPLE_MUSIC_CREDENTIALS_PATH, "r") as f:
         private_key_file_content = f.read()
         private_key = serialization.load_pem_private_key(
@@ -134,7 +141,7 @@ def generate_client_secret():
     }
     headers = {"alg": "ES256", "kid": APPLE_MUSIC_KEY_ID}
 
-    print(f"payload: {payload}, headers: {headers}")
+    logger.info(f"payload: {payload}, headers: {headers}")
 
     client_secret = jwt.encode(
         payload,
@@ -143,12 +150,12 @@ def generate_client_secret():
         headers=headers,
     )
 
-    print(f"Returning JWT encoded client_secret: {client_secret}")
+    logger.info(f"Returning JWT encoded client_secret: {client_secret}")
     return client_secret
 
 
 def generate_developer_token():
-    print("Entering generate_developer_token")
+    logger.info("Entering generate_developer_token")
 
     with open(APPLE_MUSIC_CREDENTIALS_PATH, "r") as f:
         private_key = f.read()
@@ -172,10 +179,10 @@ def generate_developer_token():
 
 
 def get_request_headers(developer_token, user_token):
-    print("Entering get_request_headers")
+    logger.info("Entering get_request_headers")
 
     if developer_token is None or user_token is None:
-        print("Error: missing user token")
+        logger.info("Error: missing user token")
         return
 
     headers = {
@@ -183,47 +190,47 @@ def get_request_headers(developer_token, user_token):
         "Content-Type": "application/json",
         "Music-User-Token": user_token,
     }
-    print(f"Exiting get_request_headers, returning headers: {headers}")
+    logger.info(f"Exiting get_request_headers, returning headers: {headers}")
     return headers
 
 
 def get_applemusic_library_artists(developer_token, user_token):
-    print(
+    logger.info(
         f"Entering get_applemusic_library_artists, developer_token: {developer_token} user_token: {user_token}"
     )
     if developer_token is None or user_token is None:
-        print("Error: missing user token")
+        logger.info("Error: missing user token")
         return
 
     headers = get_request_headers(developer_token, user_token)
 
     url = "https://api.music.apple.com/v1/me/library/artists"
-    print(f"Making request to {url} with headers: {headers}")
+    logger.info(f"Making request to {url} with headers: {headers}")
 
     response = requests.get(url, headers=headers)
-    print(f"response: {response}")
+    logger.info(f"response: {response}")
 
     data = response.json()
 
     if "data" in data:
         artists = [item["attributes"]["name"] for item in data["data"]]
-        print("Exiting get_applemusic_library_artists")
+        logger.info("Exiting get_applemusic_library_artists")
         return artists
     else:
-        print("Failed to fetch Apple Music library artists")
+        logger.info("Failed to fetch Apple Music library artists")
         return []
 
 
 def get_applemusic_library_songs(developer_token, user_token):
-    print(f"Entering get_applemusic_library_songs, user_token: {user_token}")
+    logger.info(f"Entering get_applemusic_library_songs, user_token: {user_token}")
     if developer_token is None or user_token is None:
-        print("Error: missing user token")
+        logger.info("Error: missing user token")
         return
 
     headers = get_request_headers(developer_token, user_token)
 
     url = "https://api.music.apple.com/v1/me/library/songs"
-    print(f"Making request to {url} with headers: {headers}")
+    logger.info(f"Making request to {url} with headers: {headers}")
 
     response = requests.get(url, headers=headers)
     data = response.json()
@@ -237,8 +244,8 @@ def get_applemusic_library_songs(developer_token, user_token):
             }
             for item in data["data"]
         ]
-        print("Exiting get_applemusic_library_songs")
+        logger.info("Exiting get_applemusic_library_songs")
         return songs
     else:
-        print("Failed to fetch Apple Music library songs")
+        logger.info("Failed to fetch Apple Music library songs")
         return []

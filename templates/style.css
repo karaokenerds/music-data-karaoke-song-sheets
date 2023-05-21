@@ -184,8 +184,12 @@ body.google_authenticated #googleAuthButton {
     margin-right: 5px;
 }
 
-#openSheetButton {
+.linkButton {
     vertical-align: bottom;
     width: 200px;
     margin-top: 10px;
+}
+
+#viewDebugButton {
+    margin-left: 5px;
 }

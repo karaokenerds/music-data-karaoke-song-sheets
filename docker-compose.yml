@@ -1,0 +1,16 @@
+version: '3'
+services:
+  karaokehunt-tools:
+    container_name: karaokehunt-tools
+    build:
+      context: .
+      args:
+        TZ: $(ls -la /etc/localtime | cut -d/ -f8-9)
+    ports:
+      - 24234:24234
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - TZ=${TZ}

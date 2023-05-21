@@ -1,12 +1,14 @@
 import os
 from datetime import datetime
+import logging
 
-from flask import redirect, request, session, url_for, current_app as app
+from flask import redirect, request, session, url_for, current_app as app, g
 
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 
+logger = logging.getLogger("karaokehunt")
 
 ##########################################################################
 ################           Google Auth Flow                 ##############
@@ -48,10 +50,10 @@ with app.app_context():
             session["google_token"] = flow.fetch_token(code=code)
             session["google_authenticated"] = True
 
-            print("Google authentication successful")
+            logger.info("Google authentication successful")
             return redirect(url_for("home"))
         else:
-            print("Google authentication failed")
+            logger.info("Google authentication failed")
             return redirect(url_for("home"))
 
 
@@ -61,7 +63,7 @@ with app.app_context():
 
 
 def find_google_sheet_id(sheet_title, creds):
-    print(f"Finding google sheet with title: {sheet_title}")
+    logger.info(f"Finding google sheet with title: {sheet_title}")
     service = build("drive", "v3", credentials=creds)
     escaped_sheet_title = sheet_title.replace("'", "\\'")  # Escape single quotes
     query = "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false and name='{0}'".format(
@@ -79,7 +81,7 @@ def find_google_sheet_id(sheet_title, creds):
 
 
 def create_google_sheet(title, creds):
-    print(f"Creating google sheet with title: {title}")
+    logger.info(f"Creating google sheet with title: {title}")
     service = build("sheets", "v4", credentials=creds)
     spreadsheet = {"properties": {"title": title}}
     spreadsheet = (
@@ -98,7 +100,7 @@ def create_google_sheet(title, creds):
 def write_rows_to_google_sheet(
     spreadsheet_id, google_creds, header_values, data_values
 ):
-    print(f"Writing karaoke songs to google sheet with ID: {spreadsheet_id}")
+    logger.info(f"Writing karaoke songs to google sheet with ID: {spreadsheet_id}")
     service = build("sheets", "v4", credentials=google_creds)
 
     sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
@@ -154,7 +156,7 @@ def write_rows_to_google_sheet(
 
 
 def create_and_write_google_sheet(google_token, username, header_values, data_values):
-    print("Creating (or finding existing) google sheet and writing rows to it")
+    logger.info("Creating (or finding existing) google sheet and writing rows to it")
     google_creds = Credentials(token=google_token["access_token"])
 
     now = datetime.now()
@@ -168,7 +170,7 @@ def create_and_write_google_sheet(google_token, username, header_values, data_va
 
     write_rows_to_google_sheet(spreadsheet_id, google_creds, header_values, data_values)
 
-    print(
+    logger.info(
         f"Google Sheet created for user {username}: https://docs.google.com/spreadsheets/d/{spreadsheet_id} "
     )
     sheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"

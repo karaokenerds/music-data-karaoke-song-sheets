@@ -18,6 +18,9 @@ yt-dlp = "*"
 pyjwt = "*"
 cryptography = "*"
 coolname = "*"
+flask-security = "*"
+pytz = "*"
+email-validator = "*"
 
 [dev-packages]
 

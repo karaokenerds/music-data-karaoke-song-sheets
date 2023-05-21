@@ -2,16 +2,13 @@ import os
 import requests
 import json
 import spotipy
+import logging
 
-from flask import (
-    request,
-    redirect,
-    session,
-    url_for,
-    current_app as app
-)
+from flask import request, redirect, session, url_for, current_app as app, g
 
 from spotipy.oauth2 import SpotifyOAuth
+
+logger = logging.getLogger("karaokehunt")
 
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -24,6 +21,7 @@ TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
 ################           Spotify Auth Flow                ##############
 ##########################################################################
 
+
 def get_spotify_user_id(access_token):
     url = "https://api.spotify.com/v1/me"
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -31,7 +29,7 @@ def get_spotify_user_id(access_token):
     response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
-        print(f"Failed to fetch user ID. Error {response.status_code}: {response.text}")
+        logger.error(f"Failed to fetch user ID. Error {response.status_code}: {response.text}")
         return None
 
     user_data = response.json()
@@ -41,6 +39,7 @@ def get_spotify_user_id(access_token):
 
 
 with app.app_context():
+
     @app.route("/authenticate/spotify")
     def authenticate_spotify():
         cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
@@ -71,9 +70,16 @@ with app.app_context():
         if token_info:
             session["spotify_authenticated"] = True
             session["spotify_auth_token"] = token_info
-            print("Spotify authentication successful")
+            logger.info("Spotify authentication successful")
+
+            username = get_spotify_user_id(token_info)
+            session["spotify_username"] = username
+            session["username"] = username
+            g.username = username
+
+            logger.info(f"Spotify username stored in session: {username}")
         else:
-            print("Spotify authentication failed")
+            logger.error("Spotify authentication failed")
         return redirect(url_for("home"))
 
 
@@ -81,19 +87,20 @@ with app.app_context():
 ###########                Load Spotify Data                   ###########
 ##########################################################################
 
+
 def get_top_artists_spotify(spotify_user_id, access_token):
-    cache_file = f'{TEMP_OUTPUT_DIR}/top_artists_spotify_{spotify_user_id}.json'
+    cache_file = f"{TEMP_OUTPUT_DIR}/top_artists_spotify_{spotify_user_id}.json"
 
     # Load data from cache file if it exists
     if os.path.exists(cache_file):
-        print(
+        logger.info(
             f"Found top artists cache file for user ID {spotify_user_id}, loading this instead of fetching again"
         )
         with open(cache_file, "r", encoding="utf-8") as f:
             all_top_artists = json.load(f)
             return all_top_artists
 
-    print(
+    logger.info(
         f"No top artists cache file found for user ID {spotify_user_id}, fetching 50 top artists"
     )
 
@@ -108,7 +115,9 @@ def get_top_artists_spotify(spotify_user_id, access_token):
         response = requests.get(url, headers=headers, params=params)
 
         if response.status_code != 200:
-            print(f"Failed to fetch top artists. Error {response.status_code}: {response.text}")
+            logger.error(
+                f"Failed to fetch top artists. Error {response.status_code}: {response.text}"
+            )
             return None
 
         top_artists_data = response.json()
@@ -120,7 +129,7 @@ def get_top_artists_spotify(spotify_user_id, access_token):
     followed_artists_offset = 0
 
     while True:
-        print(
+        logger.info(
             f"Inside followed artists while loop, offset: {followed_artists_offset}, len(all_top_artists): {len(all_top_artists)}"
         )
         followed_artists_params = {"limit": 50, "after": followed_artists_offset}
@@ -130,7 +139,7 @@ def get_top_artists_spotify(spotify_user_id, access_token):
         )
 
         if followed_artists_response.status_code != 200:
-            print(
+            logger.error(
                 f"Failed to fetch followed artists. Error {followed_artists_response.status_code}: {followed_artists_response.text}"
             )
             return None
@@ -143,7 +152,7 @@ def get_top_artists_spotify(spotify_user_id, access_token):
             break
 
         if len(all_top_artists) > limit:
-            print(f"Top artists limit reached, breaking loop: {limit}")
+            logger.info(f"Top artists limit reached, breaking loop: {limit}")
             break
 
         followed_artists_offset += len(followed_artists)
@@ -160,18 +169,18 @@ def get_top_artists_spotify(spotify_user_id, access_token):
 
 
 def get_top_tracks_spotify(spotify_user_id, access_token):
-    cache_file = f'{TEMP_OUTPUT_DIR}/top_tracks_spotify_{spotify_user_id}.json'
+    cache_file = f"{TEMP_OUTPUT_DIR}/top_tracks_spotify_{spotify_user_id}.json"
 
     # Load data from cache file if it exists
     if os.path.exists(cache_file):
-        print(
+        logger.info(
             f"Found top tracks cache file for user ID {spotify_user_id}, loading this instead of fetching again"
         )
         with open(cache_file, "r", encoding="utf-8") as f:
             all_top_tracks = json.load(f)
             return all_top_tracks
 
-    print(
+    logger.info(
         f"No top tracks cache file found for user ID {spotify_user_id}, beginning fetch loop"
     )
 
@@ -186,7 +195,9 @@ def get_top_tracks_spotify(spotify_user_id, access_token):
         response = requests.get(url, headers=headers, params=params)
 
         if response.status_code != 200:
-            print(f"Failed to fetch top tracks. Error {response.status_code}: {response.text}")
+            logger.error(
+                f"Failed to fetch top tracks. Error {response.status_code}: {response.text}"
+            )
             return None
 
         top_tracks_data = response.json()
@@ -198,7 +209,7 @@ def get_top_tracks_spotify(spotify_user_id, access_token):
     saved_tracks_offset = 0
 
     while True:
-        print(
+        logger.info(
             f"Inside saved tracks while loop, offset: {saved_tracks_offset}, len(all_top_tracks): {len(all_top_tracks)}"
         )
 
@@ -209,7 +220,7 @@ def get_top_tracks_spotify(spotify_user_id, access_token):
         )
 
         if saved_tracks_response.status_code != 200:
-            print(
+            logger.error(
                 f"Failed to fetch saved tracks. Error {saved_tracks_response.status_code}: {saved_tracks_response.text}"
             )
             return None
@@ -222,7 +233,7 @@ def get_top_tracks_spotify(spotify_user_id, access_token):
             break
 
         if len(all_top_tracks) > limit:
-            print(f"Top tracks limit reached, breaking loop: {limit}")
+            logger.info(f"Top tracks limit reached, breaking loop: {limit}")
             break
 
         saved_tracks_offset += len(saved_tracks)
