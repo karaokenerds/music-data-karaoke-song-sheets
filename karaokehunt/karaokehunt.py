@@ -49,6 +49,13 @@ def home():
         error_flash_message = session.pop("error_flash_message", None)
         error_flash_class = "visible"
 
+    open_sheet_class = ""
+    open_sheet_url = "#"
+
+    if "open_sheet_url" in session:
+        open_sheet_url = session["open_sheet_url"]
+        open_sheet_class = "visible"
+
     applemusic_developer_token = session.get("applemusic_developer_token")
     if not applemusic_developer_token:
         applemusic_developer_token = generate_developer_token()
@@ -84,6 +91,8 @@ def home():
         lastfm_username=lastfm_username,
         error_flash_message=error_flash_message,
         error_flash_class=error_flash_class,
+        open_sheet_url=open_sheet_url,
+        open_sheet_class=open_sheet_class
     )
 
 
@@ -424,9 +433,10 @@ with app.app_context():
         )
 
         if session.get("google_authenticated"):
-            return create_and_write_google_sheet(
+            session["open_sheet_url"] = create_and_write_google_sheet(
                 session.get("google_token"), g.username, header_values, data_values
             )
+            return session["open_sheet_url"]
         else:
             print("No google auth found, writing output to CSV file instead")
             csv_file = f"{TEMP_OUTPUT_DIR}/{CSV_OUTPUT_FILENAME_PREFIX}{g.username}.csv"
@@ -436,4 +446,5 @@ with app.app_context():
                 writer.writerow(header_values)
                 writer.writerows(data_values)
 
-            return f"/fetch_csv?username={g.username}"
+            session["open_sheet_url"] = f"/fetch_csv?username={g.username}"
+            return session["open_sheet_url"]

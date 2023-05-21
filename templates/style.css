@@ -208,6 +208,12 @@ body.google_authenticated #googleAuthButton {
 #buildSheetButton {
     margin-right: 5px;
 }
+#openSheetButton {
+    display: none;
+}
+#openSheetButton.visible {
+    display: inline-block;
+}
 
 .linkButton {
     vertical-align: bottom;
