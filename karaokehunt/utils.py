@@ -29,6 +29,11 @@ DEFAULT_loglimit = os.getenv("DEFAULT_loglimit", 50)
 
 with app.app_context():
 
+    def log_error_with_flash(error):
+        logger.debug('log_error_with_flash setting session["error_flash_message"] to error string')
+        session["error_flash_message"] = error
+        logger.error(error)
+
     def tail(f, lines=1, _buffer=4098):
         """Tail a file and get X lines from the end"""
         # place holder for the lines found

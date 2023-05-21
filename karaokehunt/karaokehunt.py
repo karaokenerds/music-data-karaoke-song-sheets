@@ -13,7 +13,7 @@ from flask import (
     current_app as app,
     send_from_directory,
     render_template,
-    g
+    g,
 )
 
 logger = logging.getLogger("karaokehunt")
@@ -26,6 +26,7 @@ from karaokehunt.utils import *
 from karaokehunt.google import *
 from karaokehunt.applemusic import *
 from karaokehunt.karaokenerds import *
+
 # autopep8: on
 
 TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
@@ -40,6 +41,13 @@ CSV_OUTPUT_FILENAME_PREFIX = os.getenv("CSV_OUTPUT_FILENAME_PREFIX")
 @app.route("/", methods=["GET"])
 def home():
     logger.info("Homepage requested")
+
+    error_flash_class = ""
+    error_flash_message = ""
+
+    if "error_flash_message" in session:
+        error_flash_message = session.pop("error_flash_message", None)
+        error_flash_class = "visible"
 
     applemusic_developer_token = session.get("applemusic_developer_token")
     if not applemusic_developer_token:
@@ -74,7 +82,10 @@ def home():
         applemusic_authenticated=applemusic_authenticated,
         google_authenticated=google_authenticated,
         lastfm_username=lastfm_username,
+        error_flash_message=error_flash_message,
+        error_flash_class=error_flash_class,
     )
+
 
 ##########################################################################
 ###########               Calculate Songs Rows                 ###########
@@ -82,11 +93,15 @@ def home():
 
 
 def calculate_songs_rows(
-        all_karaoke_songs, include_zero_score,
-        lastfm_artist_playcounts, lastfm_track_playcounts,
-        spotify_artist_scores, spotify_track_scores,
-        applemusic_artists, applemusic_tracks,
-        youtube_liked_songs
+    all_karaoke_songs,
+    include_zero_score,
+    lastfm_artist_playcounts,
+    lastfm_track_playcounts,
+    spotify_artist_scores,
+    spotify_track_scores,
+    applemusic_artists,
+    applemusic_tracks,
+    youtube_liked_songs,
 ):
     print(f"Filtering, sorting and calculating karaoke songs rows")
 
@@ -140,7 +155,8 @@ def calculate_songs_rows(
     lastfm_track_playcounts_simple = {}
     if lastfm_artist_playcounts is not None:
         lastfm_artist_playcounts_simple = {
-            artist["name"].lower(): artist["playcount"] for artist in lastfm_artist_playcounts
+            artist["name"].lower(): artist["playcount"]
+            for artist in lastfm_artist_playcounts
         }
 
     if lastfm_track_playcounts is not None:
@@ -154,23 +170,35 @@ def calculate_songs_rows(
     spotify_artist_scores_simple = {}
     spotify_track_scores_simple = {}
     if spotify_artist_scores is not None:
-        spotify_artist_scores_simple = {artist["name"].lower(): artist["popularity"] for artist in spotify_artist_scores}
+        spotify_artist_scores_simple = {
+            artist["name"].lower(): artist["popularity"]
+            for artist in spotify_artist_scores
+        }
 
     if spotify_track_scores is not None:
         for track in spotify_track_scores:
             try:
-                spotify_track_scores_simple[(track["album"]["artists"][0]["name"].lower(), track["name"].lower())] = track["popularity"]
+                spotify_track_scores_simple[
+                    (
+                        track["album"]["artists"][0]["name"].lower(),
+                        track["name"].lower(),
+                    )
+                ] = track["popularity"]
             except:
                 print(f'Failed to add track {track["name"]} as it had no album artists')
 
     applemusic_artist_scores_simple = {}
     applemusic_track_scores_simple = {}
     if applemusic_artists is not None:
-        applemusic_artist_scores_simple = {artist.lower(): 1 for artist in applemusic_artists}
+        applemusic_artist_scores_simple = {
+            artist.lower(): 1 for artist in applemusic_artists
+        }
 
     if applemusic_tracks is not None:
-        applemusic_track_scores_simple = {(track["artist"].lower(), track["title"].lower()): 1 for track in applemusic_tracks}
-
+        applemusic_track_scores_simple = {
+            (track["artist"].lower(), track["title"].lower()): 1
+            for track in applemusic_tracks
+        }
 
     youtube_artist_scores_simple = {}
     youtube_track_scores_simple = {}
@@ -183,8 +211,7 @@ def calculate_songs_rows(
                 youtube_artist_scores_simple[artist] = 1
 
         youtube_track_scores_simple = {
-            (track[0].lower(), track[1].lower()): 1
-            for track in youtube_liked_songs
+            (track[0].lower(), track[1].lower()): 1 for track in youtube_liked_songs
         }
 
     data_values = []
@@ -199,46 +226,41 @@ def calculate_songs_rows(
         lastfm_artist_playcount_simple = 0
         lastfm_track_playcount_simple = 0
 
-        lastfm_artist_playcount_simple = int(lastfm_artist_playcounts_simple.get(
-            artist_lower, 0
-        ))
-        lastfm_track_playcount_simple = int(lastfm_track_playcounts_simple.get(
-            (artist_lower, title_lower), 0
-        ))
+        lastfm_artist_playcount_simple = int(
+            lastfm_artist_playcounts_simple.get(artist_lower, 0)
+        )
+        lastfm_track_playcount_simple = int(
+            lastfm_track_playcounts_simple.get((artist_lower, title_lower), 0)
+        )
 
         spotify_artist_score_simple = 0
         spotify_track_score_simple = 0
 
-        spotify_artist_score_simple = int(spotify_artist_scores_simple.get(
-            artist_lower, 0
-        ))
-        spotify_track_score_simple = int(spotify_track_scores_simple.get(
-            (artist_lower, title_lower), 0
-        ))
+        spotify_artist_score_simple = int(
+            spotify_artist_scores_simple.get(artist_lower, 0)
+        )
+        spotify_track_score_simple = int(
+            spotify_track_scores_simple.get((artist_lower, title_lower), 0)
+        )
 
         applemusic_artist_score_simple = 0
         applemusic_track_score_simple = 0
 
-        applemusic_artist_score_simple = int(applemusic_artist_scores_simple.get(
-            artist_lower, 0
-        ))
-        applemusic_track_score_simple = int(applemusic_track_scores_simple.get(
-            (artist_lower, title_lower), 0
-        ))
+        applemusic_artist_score_simple = int(
+            applemusic_artist_scores_simple.get(artist_lower, 0)
+        )
+        applemusic_track_score_simple = int(
+            applemusic_track_scores_simple.get((artist_lower, title_lower), 0)
+        )
 
-        youtube_artist_score_simple = int(youtube_artist_scores_simple.get(
-            artist_lower, 0
-        ))
-        youtube_track_score_simple = int(youtube_track_scores_simple.get(
-            (artist_lower, title_lower), 0
-        ))
+        youtube_artist_score_simple = int(
+            youtube_artist_scores_simple.get(artist_lower, 0)
+        )
+        youtube_track_score_simple = int(
+            youtube_track_scores_simple.get((artist_lower, title_lower), 0)
+        )
 
-        song_values = [
-            song["Artist"],
-            song["Title"],
-            song["Brands"],
-            popularity
-        ]
+        song_values = [song["Artist"], song["Title"], song["Brands"], popularity]
 
         combined_artist_score = 0
         combined_track_score = 0
@@ -266,8 +288,12 @@ def calculate_songs_rows(
         if applemusic_artists is not None:
             combined_artist_score += applemusic_artist_score_simple
             combined_track_score += applemusic_track_score_simple
-            applemusic_artist_popularity_score = applemusic_artist_score_simple * popularity
-            applemusic_track_popularity_score = applemusic_track_score_simple * popularity
+            applemusic_artist_popularity_score = (
+                applemusic_artist_score_simple * popularity
+            )
+            applemusic_track_popularity_score = (
+                applemusic_track_score_simple * popularity
+            )
             song_values.append(applemusic_artist_score_simple)
             song_values.append(applemusic_track_score_simple)
             song_values.append(applemusic_artist_popularity_score)
@@ -302,17 +328,24 @@ def calculate_songs_rows(
 ##########################################################################
 
 with app.app_context():
+
     @app.route("/fetch_csv")
     def fetch_csv():
         username = request.args.get("username")
-        return send_from_directory(TEMP_OUTPUT_DIR, f'{CSV_OUTPUT_FILENAME_PREFIX}{username}.csv')
+        return send_from_directory(
+            TEMP_OUTPUT_DIR, f"{CSV_OUTPUT_FILENAME_PREFIX}{username}.csv"
+        )
 
     @app.route("/generate_sheet")
     def generate_sheet():
-        include_zero_score = request.args.get('includeZeroScoreSongs')
+        include_zero_score = request.args.get("includeZeroScoreSongs")
 
-        if not session.get("spotify_authenticated") and not session.get("lastfm_authenticated") and \
-           not session.get("applemusic_authenticated") and not session.get("youtube_authenticated"):
+        if (
+            not session.get("spotify_authenticated")
+            and not session.get("lastfm_authenticated")
+            and not session.get("applemusic_authenticated")
+            and not session.get("youtube_authenticated")
+        ):
             return "At least one music data source is required", 401
 
         all_karaoke_songs = load_karaoke_songs()
@@ -327,50 +360,80 @@ with app.app_context():
 
         if session.get("lastfm_authenticated"):
             print("Last.fm auth found, loading lastfm data")
-            lastfm_artist_playcounts = get_top_artists_lastfm(session.get("lastfm_username"))
-            lastfm_track_playcounts = get_top_tracks_lastfm(session.get("lastfm_username"))
+            lastfm_artist_playcounts = get_top_artists_lastfm(
+                session.get("lastfm_username")
+            )
+            lastfm_track_playcounts = get_top_tracks_lastfm(
+                session.get("lastfm_username")
+            )
 
         if session.get("spotify_authenticated"):
             print("Spotify auth found, loading spotify data")
             spotify_auth_token = session.get("spotify_auth_token")
             spotify_auth_token = spotify_auth_token["access_token"]
 
-            spotify_artist_scores = get_top_artists_spotify(session.get("spotify_username"), spotify_auth_token)
-            spotify_track_scores = get_top_tracks_spotify(session.get("spotify_username"), spotify_auth_token)
+            spotify_artist_scores = get_top_artists_spotify(
+                session.get("spotify_username"), spotify_auth_token
+            )
+            spotify_track_scores = get_top_tracks_spotify(
+                session.get("spotify_username"), spotify_auth_token
+            )
 
         if session.get("applemusic_authenticated"):
             print("Apple Music auth found, loading applemusic data")
             applemusic_music_user_token = session.get("applemusic_music_user_token")
             applemusic_developer_token = session.get("applemusic_developer_token")
 
-            print(f"Fetching Apple Music data with token: {applemusic_music_user_token}")
-            applemusic_artists = get_applemusic_library_artists(applemusic_developer_token, applemusic_music_user_token)
-            applemusic_tracks = get_applemusic_library_songs(applemusic_developer_token, applemusic_music_user_token)
-            print(f"Apple Music artist counts: {applemusic_artists} and track counts: {applemusic_tracks}")
+            print(
+                f"Fetching Apple Music data with token: {applemusic_music_user_token}"
+            )
+            applemusic_artists = get_applemusic_library_artists(
+                applemusic_developer_token, applemusic_music_user_token
+            )
+            applemusic_tracks = get_applemusic_library_songs(
+                applemusic_developer_token, applemusic_music_user_token
+            )
+            print(
+                f"Apple Music artist counts: {applemusic_artists} and track counts: {applemusic_tracks}"
+            )
 
         if session.get("youtube_authenticated"):
             print("Youtube Music auth found, loading youtube data")
             youtube_oauth_token = session.get("youtube_token")
-            youtube_liked_videos = get_liked_videos(session["youtube_username"], youtube_oauth_token)
-            youtube_liked_songs = identify_songs_from_youtube_videos(session["youtube_username"], youtube_liked_videos)
+            youtube_liked_videos = get_liked_videos(
+                session["youtube_username"], youtube_oauth_token
+            )
+            youtube_liked_songs = identify_songs_from_youtube_videos(
+                session["youtube_username"], youtube_liked_videos
+            )
 
-        header_values, data_values = calculate_songs_rows(all_karaoke_songs, include_zero_score,
-                                                          lastfm_artist_playcounts, lastfm_track_playcounts,
-                                                          spotify_artist_scores, spotify_track_scores,
-                                                          applemusic_artists, applemusic_tracks,
-                                                          youtube_liked_songs)
+        header_values, data_values = calculate_songs_rows(
+            all_karaoke_songs,
+            include_zero_score,
+            lastfm_artist_playcounts,
+            lastfm_track_playcounts,
+            spotify_artist_scores,
+            spotify_track_scores,
+            applemusic_artists,
+            applemusic_tracks,
+            youtube_liked_songs,
+        )
 
-        print("Karaoke song rows calculated successfully, proceeding to write to CSV or Google Sheet")
+        print(
+            "Karaoke song rows calculated successfully, proceeding to write to CSV or Google Sheet"
+        )
 
         if session.get("google_authenticated"):
-            return create_and_write_google_sheet(session.get("google_token"), g.username, header_values, data_values)
+            return create_and_write_google_sheet(
+                session.get("google_token"), g.username, header_values, data_values
+            )
         else:
             print("No google auth found, writing output to CSV file instead")
-            csv_file = f'{TEMP_OUTPUT_DIR}/{CSV_OUTPUT_FILENAME_PREFIX}{g.username}.csv'
+            csv_file = f"{TEMP_OUTPUT_DIR}/{CSV_OUTPUT_FILENAME_PREFIX}{g.username}.csv"
 
-            with open(csv_file, 'w') as file:
+            with open(csv_file, "w") as file:
                 writer = csv.writer(file)
                 writer.writerow(header_values)
                 writer.writerows(data_values)
 
-            return f'/fetch_csv?username={g.username}'
+            return f"/fetch_csv?username={g.username}"

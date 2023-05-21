@@ -33,6 +33,16 @@
                 Use this tool to generate a google sheet of karaoke songs you may know, based on your listening data!
             </p>
         </header>
+        
+        <div class="row errorFlashRow {{error_flash_class}}" role="alert">
+            <div class="errorFlashWrapper">
+                <div class="alert alert-danger errorFlashMessage">
+                    <p class="bold">An error occurred during the last action:</p>
+                    <p>{{error_flash_message}}</p>
+                    <p class="reloadToClear">Reload the page to clear this message, or <a href="/debug" target="_blank">click here to view technical debug logs</a>.</p>
+                </div>
+            </div>
+        </div>
 
         <div class="row">
             <header class="step">
@@ -158,7 +168,7 @@
                 <header class="step">
                     <h3>Generate your Karaoke Sheet</h3>
                     <p class="tagline">
-                        Be patient, this may take up to a minute if you have a large number of liked/followed tracks!
+                        Be patient, this may take a couple of minutes if you have a large number of liked/followed tracks!
                     </p>
                 </header>
 
@@ -175,16 +185,24 @@
         </div>
 
         <div class="row">
-            <header class="step">
-                <h3>Reset Auth</h3>
-                <p class="tagline">
-                    If you want to clear this session (e.g. to log in with a different account), click here!
-                </p>
-            </header>
-            <div class="col">
+            <div class="col col-md-6 col-12">
+                <header class="step">
+                    <h3>Reset Auth</h3>
+                    <p class="tagline">
+                        If you want to clear this session (e.g. to log in with a different account), click here!
+                    </p>
+                </header>
                 <button id="clearSessionButton" type="button" class="btn btn-danger">
                     Reset session
                 </button>
+            </div>
+            <div class="col col-md-6 col-12">
+                <header class="step">
+                    <h3>Technical logs / debug info</h3>
+                    <p class="tagline">
+                        If something isn't working right, this data may be helpful to find a fix. Please reach out to <a href="mailto:andrew@karaokehunt.com">Andrew</a> for help!
+                    </p>
+                </header>
                 <a href="/debug" id="viewDebugButton" type="button" class="btn btn-secondary linkButton" target="_blank">
                     View debug info
                 </a>

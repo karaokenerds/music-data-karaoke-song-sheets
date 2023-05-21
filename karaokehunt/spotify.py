@@ -3,6 +3,7 @@ import requests
 import json
 import spotipy
 import logging
+from .utils import log_error_with_flash
 
 from flask import request, redirect, session, url_for, current_app as app, g
 
@@ -13,7 +14,9 @@ logger = logging.getLogger("karaokehunt")
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
-SPOTIFY_SCOPES = "user-top-read user-follow-read user-library-read"
+SPOTIFY_SCOPES = "user-top-read user-library-read"
+# Temporarily disabled till I get the scope fixed in the app extension request
+# SPOTIFY_SCOPES = "user-read-email user-read-private user-top-read user-follow-read user-library-read"
 
 TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
 
@@ -68,18 +71,27 @@ with app.app_context():
         code = request.args.get("code")
         token_info = auth_manager.get_access_token(code)
         if token_info:
-            session["spotify_authenticated"] = True
             session["spotify_auth_token"] = token_info
             logger.info("Spotify authentication successful")
+            session["spotify_authenticated"] = True
 
-            username = get_spotify_user_id(token_info)
-            session["spotify_username"] = username
-            session["username"] = username
-            g.username = username
+            # Commented out until we can fix app scope with spotify
+            # username = get_spotify_user_id(token_info)
 
-            logger.info(f"Spotify username stored in session: {username}")
+            # if username is not None:
+            #     logger.info("Spotify authentication successful")
+            #     session["spotify_authenticated"] = True
+            #     session["spotify_username"] = username
+            #     session["username"] = username
+            #     g.username = username
+
+            #     logger.info(f"Spotify username stored in session: {username}")
+            # else:
+            #     log_error_with_flash("Spotify authentication failed, unable to get username using token")
+            #     return redirect(url_for("home"))
         else:
-            logger.error("Spotify authentication failed")
+            log_error_with_flash("Spotify authentication failed, no token returned by manager")
+
         return redirect(url_for("home"))
 
 
@@ -124,38 +136,38 @@ def get_top_artists_spotify(spotify_user_id, access_token):
         top_artists = top_artists_data["items"]
         all_top_artists.extend(top_artists)
 
-    # Fetch followed artists
-    followed_artists_url = "https://api.spotify.com/v1/me/following?type=artist"
-    followed_artists_offset = 0
+    # # Fetch followed artists
+    # followed_artists_url = "https://api.spotify.com/v1/me/following?type=artist"
+    # followed_artists_offset = 0
 
-    while True:
-        logger.info(
-            f"Inside followed artists while loop, offset: {followed_artists_offset}, len(all_top_artists): {len(all_top_artists)}"
-        )
-        followed_artists_params = {"limit": 50, "after": followed_artists_offset}
+    # while True:
+    #     logger.info(
+    #         f"Inside followed artists while loop, offset: {followed_artists_offset}, len(all_top_artists): {len(all_top_artists)}"
+    #     )
+    #     followed_artists_params = {"limit": 50, "after": followed_artists_offset}
 
-        followed_artists_response = requests.get(
-            followed_artists_url, headers=headers, params=followed_artists_params
-        )
+    #     followed_artists_response = requests.get(
+    #         followed_artists_url, headers=headers, params=followed_artists_params
+    #     )
 
-        if followed_artists_response.status_code != 200:
-            logger.error(
-                f"Failed to fetch followed artists. Error {followed_artists_response.status_code}: {followed_artists_response.text}"
-            )
-            return None
+    #     if followed_artists_response.status_code != 200:
+    #         logger.error(
+    #             f"Failed to fetch followed artists. Error {followed_artists_response.status_code}: {followed_artists_response.text}"
+    #         )
+    #         return None
 
-        followed_artists_data = followed_artists_response.json()
-        followed_artists = followed_artists_data["artists"]["items"]
-        all_top_artists.extend(followed_artists)
+    #     followed_artists_data = followed_artists_response.json()
+    #     followed_artists = followed_artists_data["artists"]["items"]
+    #     all_top_artists.extend(followed_artists)
 
-        if not followed_artists:
-            break
+    #     if not followed_artists:
+    #         break
 
-        if len(all_top_artists) > limit:
-            logger.info(f"Top artists limit reached, breaking loop: {limit}")
-            break
+    #     if len(all_top_artists) > limit:
+    #         logger.info(f"Top artists limit reached, breaking loop: {limit}")
+    #         break
 
-        followed_artists_offset += len(followed_artists)
+    #     followed_artists_offset += len(followed_artists)
 
     # Remove duplicates
     unique_artists = {artist["id"]: artist for artist in all_top_artists}.values()

@@ -36,7 +36,7 @@ class UsernameRequestIdFilter(logging.Filter):
             record.identifier += " / User: "
 
             if "username" in session:
-                record.identifier += session['username']
+                record.identifier += session["username"]
             else:
                 record.identifier += "NoUserInSession"
 
@@ -107,12 +107,7 @@ app = Flask(__name__)
 app.config.from_prefixed_env()
 app.app_context().push()
 
-
-# autopep8: off
 from karaokehunt.karaokehunt import *
-from karaokehunt.applemusic import generate_developer_token
-
-# autopep8: on
 
 
 @app.before_request
@@ -121,7 +116,9 @@ def load_username():
         flask.g.username = session.get("username")
     else:
         username = generate_slug(2)
-        logger.debug(f"Before request, found no username in session. Generated one: {username}")
+        logger.debug(
+            f"Before request, found no username in session. Generated one: {username}"
+        )
         session["username"] = username
         flask.g.username = username
 
