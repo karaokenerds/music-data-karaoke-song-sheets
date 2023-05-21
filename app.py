@@ -3,6 +3,7 @@ import uuid
 from dotenv import load_dotenv
 import logging
 import logging.config
+import re
 
 ##########################################################################
 ###################            Init and Setup               ##############
@@ -11,7 +12,8 @@ import logging.config
 load_dotenv()
 
 TEMP_OUTPUT_DIR = os.getenv("TEMP_OUTPUT_DIR")
-LOG_FILE_NAME = os.getenv("LOG_FILE_NAME")
+LOG_FILE_PATH = os.getenv("LOG_FILE_PATH")
+
 
 class UsernameRequestIdFilter(logging.Filter):
     # This is a logging filter that makes both request ID and username
@@ -19,16 +21,28 @@ class UsernameRequestIdFilter(logging.Filter):
     def filter(self, record):
         req_id = "UNKNOWN"
         username = "UNKNOWN"
+        record.identifier = f"HTTP"
 
-        if flask.has_app_context():
+        if flask.has_request_context():
+            record.identifier += " / ReqID: "
+
             if not hasattr(flask.g, "request_id"):
                 new_uuid = uuid.uuid4().hex[:10]
                 flask.g.request_id = new_uuid
-            req_id = flask.g.request_id
-            username = getattr(flask.g, "username", "UNKNOWN")
 
-        record.req_id = req_id
-        record.username = username
+            record.identifier += flask.g.request_id
+
+        if flask.has_app_context() and flask.has_request_context():
+            record.identifier += " / User: "
+
+            if "username" in session:
+                record.identifier += session['username']
+            else:
+                record.identifier += "NoUserInSession"
+
+        record.replacedmessage = re.sub("\[.+\] ", "", record.getMessage())
+        record.replacedmessage = re.sub("127.0.0.1 ", "", record.replacedmessage)
+        record.replacedmessage = re.sub("- - ", "", record.replacedmessage)
         return True
 
 
@@ -37,33 +51,47 @@ LOGGING_CONFIG = {
     "disable_existing_loggers": True,
     "filters": {
         "add_request_and_username": {
-            "()": '__main__.UsernameRequestIdFilter',
+            "()": "__main__.UsernameRequestIdFilter",
         },
     },
     "formatters": {
-        "standard": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
+        "standard": {
+            "format": "%(asctime)s [%(levelname)s] [%(identifier)s] %(name)s: %(replacedmessage)s"
+        },
     },
     "handlers": {
         "default": {
+            "stream": "ext://sys.stdout",  # Default is stderr
             "level": "DEBUG",
             "formatter": "standard",
             "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",  # Default is stderr
-        }
+            "filters": ["add_request_and_username"],
+        },
+        "timed_rotate_file": {
+            "filename": LOG_FILE_PATH,
+            "level": "DEBUG",
+            "formatter": "standard",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "encoding": "utf8",
+            # Used to configure when backups happen 'seconds, minutes, w0,w1 (monday tuesday)
+            "when": "midnight",  # Daily backup
+            # This is used to configure rollover (7=weekly files if when = daily or midnight)
+            "backupCount": 7,
+        },
     },
     "loggers": {
         "": {  # root logger
-            "handlers": ["default"],
+            "handlers": ["default", "timed_rotate_file"],
             "level": "DEBUG",
             "propagate": False,
         },
         "karaokehunt": {
-            "handlers": ["default"],
+            "handlers": ["default", "timed_rotate_file"],
             "level": "DEBUG",
-            "propagate": False
+            "propagate": False,
         },
         "__main__": {  # if __name__ == '__main__'
-            "handlers": ["default"],
+            "handlers": ["default", "timed_rotate_file"],
             "level": "DEBUG",
             "propagate": False,
         },
@@ -71,30 +99,6 @@ LOGGING_CONFIG = {
 }
 
 logging.config.dictConfig(LOGGING_CONFIG)
-
-
-# The StreamHandler responsible for writing logs to the console and log file
-# logger_stream_handler = logging.StreamHandler()
-# logger_stream_handler.addFilter(UsernameRequestIdFilter())
-
-# log_formatter = logging.Formatter(
-#     fmt="[%(asctime)s.%(msecs)03d] %(levelname)s in %(module)s/%(funcName)s Req: %(req_id)s User: %(username)s: %(message)s",
-#     datefmt="%Y-%m-%d %H:%M:%S",
-# )
-
-# logger_stream_handler.setFormatter(log_formatter)
-
-# logger = logging.getLogger()
-# logger.setLevel(logging.DEBUG)
-# logger.addHandler(logger_stream_handler)
-
-# kh_logger = logging.getLogger("karaokehunt")
-# kh_logger.setLevel(logging.DEBUG)
-# kh_logger.addHandler(logger_stream_handler)
-
-# werkzeug_logger = logging.getLogger("werkzeug")
-# default_handler.setFormatter(log_formatter)
-# werkzeug_logger.addHandler(logger_stream_handler)
 
 import flask
 from flask import Flask
@@ -117,6 +121,7 @@ def load_username():
         flask.g.username = session.get("username")
     else:
         username = generate_slug(2)
+        logger.debug(f"Before request, found no username in session. Generated one: {username}")
         session["username"] = username
         flask.g.username = username
 
