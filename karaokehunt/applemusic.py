@@ -59,7 +59,7 @@ with app.app_context():
 
         logger.info(f"In authorize_applemusic, received post data:")
         for key, val in request.form.items():
-            logger.info(key, val)
+            logger.info("key: {0} val: {1}".format(key, val))
 
         if code and id_token:
             client_secret = generate_client_secret()
